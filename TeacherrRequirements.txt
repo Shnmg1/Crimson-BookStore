@@ -1,0 +1,119 @@
+MIS 330-001 Group Project
+CrimsonBookStore Point-of-Sell Systems
+
+1.	Project Description
+CrimsonBookStore is a local business specializing in buying and selling used textbooks and general reading materials. Your team is hired to design, develop, and implement a fully functional, integrated web application for this business. The final product should be a website with a front-end user experience and well-structured back-end databases. 
+
+This system has the following functional requirements:
+A.	Users can create accounts, log in, and log out. Differentiate between at least two user types: Customer and Admin
+B.	Has the following search & browsing functions: 
+o	Display a list of currently available books. 
+o	Customers can search for books by title, author, ISBN, major, and course.
+o	Detailed book view: clicking a book image or title shows a dedicated page with details (Title, Author, ISBN, Edition, Condition, Price, Course/Major). 
+C.	Transactions: selling to and buying from the bookstore  
+o	Sell book submission: A registered customer can submit a book they want to sell. The submission form must capture: Title, Author, ISBN, Edition, Condition (dropdown: new, good, fair), Course/Major, and Asking Price. Asking price is the price the customer wants to sell it to the bookstore for.
+o	Customer purchasing from the bookstore
+	Shopping cart: Registered customers can add multiple books to a Shopping Cart.
+	Cart management: Customers can view the cart, adjust quantities, or remove items before checkout.
+	Checkout process: Customers can review the cart total and proceed to the Checkout page to confirm the purchase. (A simulated checkout process is sufficient—no real payment gateway integration is needed).
+	Order Generation: Confirming the purchase must generate a unique Purchase Order record in the database and automatically update the book inventory by marking the purchased items as Sold or by reducing the available stock quantity.
+	Purchase History: Customers must be able to view a history of their past purchase orders and their current status.
+D.	Administrative Management (Admin View)
+o	Book Inventory Management: Admin can Add, Edit, and Delete books from the main inventory.
+o	Sell Request Review: Admin can view and Approve/Reject books submitted by customers for selling. Approving a book adds it to the main inventory.
+o	Purchase Order Processing: Admin can view a list of all pending Purchase Orders and update their status (e.g., New, Processing, Shipped/Fulfilled, Cancelled).
+o	User Management (Basic): Admin can view a list of all registered users.
+2.	Core Business Entities
+•	User: customers who buy books and submit books for sale, and administrators who manage inventory and orders.
+•	Book: Stores the main inventory of books available for sale by CrimsonBookStore. This is the product being sold. Design the book table to store ISBN, Title, Edition, SellingPrice, AcquisitionCost, StockQuantity, Condition, Course/Major.
+•	Sell submission: Tracks the process where a customer offers to sell a book to the bookstore. This entity holds the details of the submission before the book is accepted into the main inventory.
+•	Purchase order: Tracks a customer's confirmed order to buy books from the bookstore. This is the key transaction record for sales.
+•	Order line item: Links specific books from the Book entity to a particular Purchase Order. This entity captures the price and quantity at the time of sale.
+
+2.	Business Logic (user-defined constraints):
+The core business logic of this system revolves around three main processes: Inventory Management, Customer Selling (Acquisition), and Customer Buying (Sales).
+•	Inventory Management logic
+o	Every book in the inventory must have a unique ISBN. A new edition of the same ISBN is treated as a different product.
+o	When a book is added to inventory (via Admin or approved Sell Submission), its StockQuantity is incremented. When a book is sold via a Purchase Order, its StockQuantity is decremented.
+o	Only books where the status is "Available" and the quantity is >0 should appear on the customer-facing browse/search pages.
+o	A book's selling price must be higher than its acquisition cost, ensuring the minimum acceptable margin.
+•	Customer Selling logic (bookstore acquires books from customers)
+o	Submission requirements: A customer must be logged in to create a Sell Submission. The submission must include all required book details (Title, Author, ISBN, Condition, Asking Price).
+o	Submission status flow: A new submission starts with the status "Pending Review". Only an Admin can change the status.
+o	Inventory integration: When an Admin changes a Sell Submission status to "Approved", the system must automatically create a new record (or update the StockQuantity of an existing record) in the Book table.
+o	Rejection rule: If a submission is "Rejected", no corresponding inventory action is taken, and the customer is notified (simulated).
+•	Customer buying logic:
+o	Cart validation: A book can only be added to the Shopping Cart if its available stock quantity is higher than or equal to 1.
+o	Cart quantity limit: A customer cannot add more of a single book than is currently available in the Book inventory (i.e., StockQuantity).
+o	Order generation: Upon confirmation at checkout, the system must generate a unique record in Purchase Order (status: "New") and create corresponding records in Order Line Item.
+o	Atomic inventory update: The inventory count for each book in the Purchase Order must be immediately (atomically) decremented before the order is confirmed to prevent overselling.
+o	Order status flow: Orders must transition through defined statuses: New   Processing  Fulfilled/Shipped  Complete (or Cancelled). Only an Admin can change these statuses.
+o	Cancellation and Restock: If a Purchase Order is "Cancelled", the stock quantities for all associated Order Line Items must be accurately returned (incremented) to the Book inventory.
+3.	Entity Relationships 
+The relationships ensure data integrity and define the business logic flow:
+1.	User  Purchase Order (One-to-Many): A single User can place many Purchase Orders.
+2.	User Sell Submission (One-to-Many): A single User can make many Sell Submissions.
+3.	Purchase Order Order Line Item (One-to-Many): A single Purchase Order can contain multiple Line Items (different books).
+4.	Book Order Line Item (One-to-Many): A single Book can appear in many Order Line Items (it can be sold many times).
+5.	Book  Sell Submission (One-to-One/One-to-Zero-or-One): A Sell Submission, once approved, creates an entry in the Book inventory.
+4.	Project Phases and Deliverables
+The project is broken down into four distinct phases, culminating in a final system and report.
+Phase 1: Requirements Gathering & Conceptual Design (due on Nov. 7th) 
+(Stage 1 Report: Database requirement statements, ERD, Relational Schema)
+1.	Detailed Requirements: Define all necessary attributes for the core entities.
+2.	Conceptual Design (ERD): Create a complete Entity-Relationship Diagram (ERD).
+o	Requirement: Must clearly show all entities, attributes (including primary and foreign keys), and the cardinality/relationship types (1:M, M:N, etc.).
+3.	Logical Design (Relational Schema): Convert the ERD into a normalized relational schema (Table Name, Attribute List including PK/FK).
+o	Requirement: Prove the design is in at least 3NF (Third Normal Form), with a written explanation of the decomposition.
+Phase 2: Database Implementation (SQL DDL & DML)
+(Deliverable: a SQL Script that creates the database and loads data into tables)
+1.	Write the complete SQL script to create all tables (using CREATE TABLE commands) and define all constraints (Primary Keys, Foreign Keys, NOT NULL). 
+2.	Write the SQL script to populate the database with realistic sample data.
+o	Requirement: Must include at least 5 sellers, 10 buyers, and 30 books selling/buying transactions with varying dates.
+Phase 3: Application Development & Integration (Front-End Prototype)
+(Deliverable: Front-end Prototype Code)
+1.	Front-End Prototype: Create a minimal, functional front-end that simulates interaction with the database.
+o	Requirement: The prototype must demonstrate at least two of the following core functions:
+	Search & browsing functions 
+	Sell book submission 
+	Customer shopping cart
+2.	Connection Simulation: Use mock data to demonstrate how the front-end would interact with the back-end (e.g., Booking selling(customerId, bookId, date, price)).
+Phase 4: Management Queries 
+(Deliverable: a SQL script that contains at least 10 SQL Queries)
+Management Queries: Write and execute at least 10 different SQL queries designed to answer management-level questions for the CrimsonBookStore administration. Your queries should answer questions covering inventory, sales, customer behavior, and acquisition (selling to the store). Each query must be documented with the question it answers, the SQL code, and the results.
+•	Requirement: Must include a mix of aggregation (SUM, COUNT), grouping (GROUP BY), joins, and date-based filtering
+5.	Final Project Deliverables (due on Dec. 3rd)
+A professional document summarizing the project includes:
+a.	List all team members on the project deliverable cover page. 
+b.	A summary of functional requirements for this application.
+c.	A complete database requirement statement to summarize the data and requirements, including entities, attributes of entities, relationships between entities, special concerns/requirements, and additional requirements. 
+d.	ERD and relational schema of the designed database.
+e.	The SQL script for database implementation. The database must contain 4-5 rows of sample data in each table. By running this SQL script, anyone can create the database and generate the same relational schema that you report; and
+f.	The SQL script that contains the required queries for data analysis. When executing the queries in this script, anyone can retrieve data from the database to generate the data analysis reports.
+
+Appendix: Suggested management-level questions
+A. Inventory and Stock Management (5 Queries). These queries help the bookstore understand what they have and where it is needed.
+1.	Low Stock Alert: Identify the Title, Author, and ISBN for all books where the current StockQuantity is less than 1 and which have been sold at least once in the past six months.
+2.	Inventory Valuation: Calculate the total dollar value of the current physical inventory using the Book table's Price and StockQuantity.
+3.	Condition Breakdown: Determine the total number of books available broken down by their Condition (e.g., New, Good, Fair), ordered from highest count to lowest.
+4.	Slow Movers: List the top 10 books (Title and ISBN) that currently have a StockQuantity greater than 10 but have had zero sales in the last year.
+5.	Course Demand: Find the average price and total quantity of books currently available for the 'MIS 301' course.
+B. Sales and Purchase Order Analysis (5 Queries). These queries focus on the selling side of the business (revenue).
+6.	Monthly Sales Revenue: Calculate the total gross revenue generated for each of the last six full months, based on PurchaseOrder records.
+7.	Top Selling Books: Identify the top 5 best-selling books by BookID, ordered by the total quantity sold across all purchase orders.
+8.	Average Order Value (AOV): Calculate the average total amount across all completed PurchaseOrder transactions.
+9.	Customer Order Frequency: Find the UserID and Username of all customers who have placed more than 3 completed orders since joining the site.
+10.	Sales by Book Condition: Calculate the total revenue generated, grouped by the Condition of the books sold in the past quarter.
+C. Book Acquisition (Sell Submission) Analysis (5 Queries). These queries help manage the process of buying books from customers.
+11.	Pending Review Backlog: Count the total number of sell submissions that are currently in the "Pending Review" status, and find the average asking price for these items.
+12.	Top Submitting Customers: List the UserID and Username of the top 5 customers who have submitted the highest number of books for sale (regardless of approval status).
+13.	Rejection Reason Analysis: Identify the titles and ISBNs of books that have been rejected from submission more than twice, indicating potential low demand or poor condition trends. (Assumes a simple log or counter for rejections).
+14.	Average Cost of Acquisition (COA): Calculate the average price the bookstore paid for books that were approved and added to the inventory in the last month. (Use the Desired Selling Price from the SellSubmission as the acquisition cost).
+15.	Conversion Rate: Determine the percentage of "Approved" submissions out of the total number of submissions made in the current year. (Requires a subquery or a CASE statement within an aggregate function).
+D. User and Administration Audit (5 Queries). These queries monitor user activity and administrative efficiency.
+16.	New User Count: Count the total number of new users who registered for the system in the last 30 days.
+17.	Inactive Customer List: Find the UserID and Email of all registered customers who have not placed a single purchase order in the last 6 months.
+18.	Admin Approval Audit: Find the Admin UserID who has approved the most SellSubmission records in the current quarter, indicating workload or efficiency.
+19.	Data Discrepancy Check: Find all BookID records in the Book inventory that have a StockQuantity of zero but are still present in an Order Line Item that has not been marked as Fulfilled/Shipped (potential system error).
+20.	Search Term Trends: (Conceptual, assuming a search history table is added) List the top 10 most searched-for keywords or ISBNs in the last week, which resulted in zero available books. This identifies unmet customer demand.
+
