@@ -1,0 +1,78 @@
+Book stock quantity might not be needed because you can count all of the books that have the same ISBN and that would be the stock quantity
+
+Users table is good as long as we first last name, phone, and address.
+
+Shipped and fulfilled is the same thing we do not need both of them
+
+acquisitionCost is the agreed upon price between the seller and admin.
+-	Look at how the admin and seller go back and forth negotiating a price.
+
+So maybe a table on the shopping cart where the users shopping cart is saved in the meantime on the database so they can close the website and still have there shopping cart saved
+
+So maybe take quantity out of OrderLineItem because we want every book to be unique. So each OrderLineItem contain one book at one price
+
+PaymentMethod table where users can put in multiple payment methods that save mock credit card information so they have saved payment methods for each userid then the particular paymentmethodid that hold a paymentmethod can be saved to a purchaseorder. 
+
+Problem:
+We need a way for the admin and user that is selling to negotiate a price.
+Currently: 
+The user that is selling sets an asking price then the admin looks at the sell submission and either accepts it or changes the price where the acquisitionCost is the price set by the admin and then the admin sets a selling price and a Book entity is created.
+
+We need a way for the user that is selling to accept the price offered in  return by the admin.
+So there has to be a back and forth between admin and user to set the acquisitionCost. The original askingPrice is NOT the acquisition cost unless the admin thinks the askingprice is reasonable.
+Excellent — you’ve identified one of the trickiest (and most realistic) workflow issues in your system design: price negotiation between seller (customer) and admin before a book is accepted into inventory.
+Let’s talk through how to represent that negotiation in the database cleanly and realistically.
+________________________________________
+🎯 Goal
+To model a two-way negotiation on price between:
+•	A customer (seller) who submits a book with an asking price, and
+•	An admin who can make counter-offers, until either side accepts or rejects.
+________________________________________
+🧩 Option 1: Add a Negotiation Table (Best Practice Approach)
+Add a PriceNegotiation table that records the entire conversation.
+Each “round” of the negotiation creates a new record (think of it as a message or offer in a thread).
+Table: PriceNegotiation
+Field	Type	Description
+NegotiationID	INT (PK, AUTO_INCREMENT)	Unique identifier
+SubmissionID	INT (FK → SellSubmission)	The SellSubmission this negotiation is about
+OfferedBy	ENUM('User', 'Admin')	Who made this offer
+OfferedPrice	DECIMAL(10,2)	The proposed price
+OfferDate	DATETIME DEFAULT CURRENT_TIMESTAMP	When the offer was made
+OfferMessage	TEXT (optional)	Optional message (e.g., “Can you go lower?”)
+OfferStatus	ENUM('Pending', 'Accepted', 'Rejected')	Status of this offer
+RoundNumber	INT	The order of this negotiation message in the conversation
+Relationships
+•	One SellSubmission can have many PriceNegotiation entries (1:M).
+•	When a negotiation is Accepted, the SellSubmission.Status should update to 'Approved', and the agreed price becomes the AcquisitionCost in the eventual Book record.
+________________________________________
+Example Flow
+Step	Actor	Action	Database Effect
+1	User	Submits SellSubmission w/ AskingPrice = $50	New SellSubmission record (Status: “Pending Review”)
+2	Admin	Offers $40	Insert into PriceNegotiation (OfferedBy=‘Admin’, OfferedPrice=40, Round=1)
+3	User	Counters with $45	Insert into PriceNegotiation (OfferedBy=‘User’, OfferedPrice=45, Round=2)
+4	Admin	Accepts $45	Update that record’s OfferStatus=‘Accepted’; update SellSubmission.Status=‘Approved’; set AcquisitionCost=45; create Book record
+This structure allows for unlimited back-and-forth and provides an audit trail of how the final price was reached — ideal for grading and demonstration.
+________________________________________
+🧩 Option 2: Add Negotiation Columns to SellSubmission (Simpler but Limited)
+If your team wants something simpler for the project:
+Add a few columns directly to SellSubmission:
+•	AdminCounterOffer DECIMAL(10,2)
+•	SellerResponse ENUM('Pending', 'Accepted', 'Rejected')
+Then the workflow is:
+1.	Seller submits AskingPrice.
+2.	Admin reviews, optionally sets AdminCounterOffer.
+3.	Seller logs in and either accepts or rejects (SellerResponse).
+4.	If accepted → create Book record with AcquisitionCost = AdminCounterOffer.
+This is fine for a one-round negotiation (admin makes a counter, user accepts or rejects), but doesn’t support multiple rounds.
+________________________________________
+✅ Recommendation
+Because your requirements say “there has to be a back and forth”, and this is a school database design project (where complexity = better grade if done right), I’d strongly recommend:
+→ Option 1: Separate PriceNegotiation table
+It’s normalized, extensible, and allows clear entity relationships for your ERD.
+________________________________________
+Would you like me to show you:
+1.	The SQL table definition for PriceNegotiation (ready to drop into your SQL script),
+and/or
+2.	How this fits into your ERD and relational schema (with the relationship lines)?
+
+
