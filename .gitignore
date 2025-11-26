@@ -1,0 +1,56 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.log
+
+# Visual Studio
+.vs/
+.vscode/
+*.sln.docstates
+
+# User-specific files
+*.rsuser
+*.userosscache
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+# Node (if you add any later)
+node_modules/
+npm-debug.log
+
+# Environment variables
+.env
+.env.local
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Configuration files with sensitive data (local overrides)
+api/appsettings.Development.json
+api/appsettings.*.local.json
+
+# Note: appsettings.json is tracked with placeholder password
+# Each developer should update it with their own MySQL password
+
