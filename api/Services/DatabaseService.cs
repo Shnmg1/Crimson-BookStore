@@ -31,7 +31,7 @@ public class DatabaseService : IDatabaseService
             }
         }
         
-        await using var adapter = new MySqlDataAdapter(command);
+        using var adapter = new MySqlDataAdapter(command);
         adapter.Fill(dataTable);
         
         return dataTable;

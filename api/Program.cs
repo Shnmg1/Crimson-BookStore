@@ -14,15 +14,17 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:8000", "http://127.0.0.1:8000", "file://")
+        // Allow all origins for development (school project)
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowAnyMethod();
     });
 });
 
-// Register database service
+// Register services
 builder.Services.AddScoped<IDatabaseService, DatabaseService>();
+builder.Services.AddSingleton<ISessionService, SessionService>(); // Singleton for in-memory session storage
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
 

@@ -11,20 +11,36 @@ https://localhost:5001/api
 
 ## Authentication
 
-**Note**: Authentication implementation details to be added.
+User authentication is handled via token-based authentication using in-memory session storage.
 
-Currently, user authentication is handled via:
-- Session-based authentication
-- User ID stored in session after login
+**How it works:**
+1. User registers or logs in via `/api/auth/register` or `/api/auth/login`
+2. API returns a session token (GUID) in the response
+3. Client stores the token in localStorage
+4. Client includes the token in the `Authorization` header for subsequent requests
+5. Server validates the token and retrieves user information from session storage
+6. Sessions expire after 24 hours
 
 **Headers** (when authenticated):
 ```
 Authorization: Bearer {token}
 ```
-or
+
+**Getting Current User in Controllers:**
+Controllers can use the `AuthHelper.GetCurrentUser()` method to retrieve the authenticated user:
+```csharp
+var currentUser = AuthHelper.GetCurrentUser(Request, _sessionService);
+if (currentUser == null)
+{
+    return Unauthorized(new { success = false, error = "Not authenticated", statusCode = 401 });
+}
 ```
-Cookie: sessionId={sessionId}
-```
+
+**Session Management:**
+- Sessions are stored in-memory (server restart clears all sessions)
+- Each session token is a GUID
+- Sessions automatically expire after 24 hours
+- Expired sessions are cleaned up automatically
 
 ---
 
@@ -73,6 +89,16 @@ Register a new user account.
 }
 ```
 
+**Field Requirements:**
+- `username` (required): Unique username, must not be empty
+- `email` (required): Unique email address, must not be empty
+- `password` (required): Password (stored as plain text for demo purposes)
+- `firstName` (required): User's first name
+- `lastName` (required): User's last name
+- `phone` (optional): Phone number
+- `address` (optional): User's address
+- `userType` (optional): Either "Customer" or "Admin", defaults to "Customer"
+
 **Response:**
 ```json
 {
@@ -88,13 +114,17 @@ Register a new user account.
 
 **Status Codes:**
 - `201 Created` - User registered successfully
-- `400 Bad Request` - Validation error (username/email already exists)
+- `400 Bad Request` - Validation error:
+  - Missing required fields
+  - Username already exists
+  - Email already exists
+  - Invalid UserType (must be "Customer" or "Admin")
 - `500 Internal Server Error` - Server error
 
 ---
 
 #### POST `/api/auth/login`
-Authenticate user and create session.
+Authenticate user and create session token.
 
 **Request Body:**
 ```json
@@ -104,6 +134,10 @@ Authenticate user and create session.
 }
 ```
 
+**Field Requirements:**
+- `username` (required): User's username
+- `password` (required): User's password (plain text comparison for demo purposes)
+
 **Response:**
 ```json
 {
@@ -112,20 +146,28 @@ Authenticate user and create session.
     "userId": 1,
     "username": "johndoe",
     "userType": "Customer",
-    "token": "session-token-here"
+    "token": "550e8400-e29b-41d4-a716-446655440000"
   }
 }
 ```
 
 **Status Codes:**
-- `200 OK` - Login successful
-- `401 Unauthorized` - Invalid credentials
+- `200 OK` - Login successful, token returned
+- `400 Bad Request` - Missing username or password
+- `401 Unauthorized` - Invalid credentials (username not found or password incorrect)
 - `500 Internal Server Error` - Server error
+
+**Note:** The token is a GUID that should be stored by the client and included in the `Authorization: Bearer {token}` header for subsequent requests.
 
 ---
 
 #### POST `/api/auth/logout`
-Log out current user.
+Log out current user and invalidate session token.
+
+**Headers:**
+```
+Authorization: Bearer {token}
+```
 
 **Response:**
 ```json
@@ -134,6 +176,12 @@ Log out current user.
   "message": "Logged out successfully"
 }
 ```
+
+**Status Codes:**
+- `200 OK` - Logout successful
+- `500 Internal Server Error` - Server error
+
+**Note:** Client should remove the token from localStorage after logout.
 
 ---
 
@@ -973,6 +1021,15 @@ All endpoints return appropriate HTTP status codes:
 
 ## Notes for Implementation
 
+### Authentication
+- Token-based authentication using in-memory session storage
+- Sessions expire after 24 hours
+- Tokens are GUIDs generated on login
+- Use `AuthHelper.GetCurrentUser(Request, sessionService)` in controllers to get authenticated user
+- Return `401 Unauthorized` if `GetCurrentUser()` returns null
+- Passwords are stored as plain text (for demo/school project purposes only)
+- Session storage is in-memory (sessions cleared on server restart)
+
 ### Transaction Management
 Critical operations should use database transactions:
 - Checkout (create order, update books, create payment, clear cart)
@@ -997,6 +1054,6 @@ Critical operations should use database transactions:
 
 ---
 
-**Last Updated**: [Date]
+**Last Updated**: 2024-01-15
 **API Version**: 1.0
 
