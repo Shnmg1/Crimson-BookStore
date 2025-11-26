@@ -150,6 +150,48 @@ public class BookService : IBookService
         return await GetAvailableBooksAsync(search: searchTerm);
     }
 
+    public async Task<List<BookCopyResponse>> GetBookCopiesAsync(string isbn, string edition)
+    {
+        var query = @"
+            SELECT 
+                BookID,
+                SellingPrice,
+                BookCondition
+            FROM Book
+            WHERE ISBN = @ISBN 
+              AND Edition = @Edition 
+              AND Status = 'Available'
+            ORDER BY 
+                CASE BookCondition 
+                    WHEN 'New' THEN 1 
+                    WHEN 'Good' THEN 2 
+                    WHEN 'Fair' THEN 3 
+                END,
+                SellingPrice ASC";
+
+        var parameters = new Dictionary<string, object>
+        {
+            { "@ISBN", isbn },
+            { "@Edition", edition }
+        };
+
+        var dataTable = await _databaseService.ExecuteQueryAsync(query, parameters);
+
+        var copies = new List<BookCopyResponse>();
+
+        foreach (DataRow row in dataTable.Rows)
+        {
+            copies.Add(new BookCopyResponse
+            {
+                BookId = Convert.ToInt32(row["BookID"]),
+                Price = Convert.ToDecimal(row["SellingPrice"]),
+                Condition = row["BookCondition"].ToString() ?? string.Empty
+            });
+        }
+
+        return copies;
+    }
+
     public async Task<int> CreateBookAsync(CreateBookRequest request)
     {
         // Validate: SellingPrice > AcquisitionCost

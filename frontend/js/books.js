@@ -51,6 +51,17 @@ async function getStockCount(isbn, edition) {
     }
 }
 
+// Get all individual copies of a book by ISBN and Edition
+async function getBookCopies(isbn, edition) {
+    try {
+        const response = await apiCall(`/books/copies/${encodeURIComponent(isbn)}/${encodeURIComponent(edition)}`);
+        return response;
+    } catch (error) {
+        console.error('Failed to fetch book copies:', error);
+        throw error;
+    }
+}
+
 // Load and display books
 async function loadBooks(searchTerm = null, page = 1) {
     const booksList = document.getElementById('booksList');
@@ -205,18 +216,28 @@ async function showBookDetail(isbn, edition) {
             return;
         }
 
-        // Get all books with this ISBN+Edition to find a specific bookId
-        // For now, we'll show the grouped information, but ideally we'd get a specific bookId
-        // Since the API groups by ISBN+Edition, we'll create a detail view from the grouped data
-        displayBookDetailModal(matchingBook, isbn, edition);
+        // Display modal with individual copies
+        await displayBookDetailModal(matchingBook, isbn, edition);
     } catch (error) {
         showAlert(`Error loading book details: ${error.message}`, 'danger');
     }
 }
 
 // Display book detail in a Bootstrap modal
-function displayBookDetailModal(book, isbn, edition) {
+async function displayBookDetailModal(book, isbn, edition) {
     const app = document.getElementById('app');
+    
+    // Fetch individual copies
+    let copies = [];
+    let copiesError = null;
+    try {
+        const copiesResponse = await getBookCopies(isbn, edition);
+        if (copiesResponse.success && copiesResponse.data) {
+            copies = copiesResponse.data;
+        }
+    } catch (error) {
+        copiesError = error.message;
+    }
     
     // Create modal HTML
     const modalHTML = `
@@ -228,7 +249,7 @@ function displayBookDetailModal(book, isbn, edition) {
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="row">
+                        <div class="row mb-4">
                             <div class="col-md-6">
                                 <h6>Book Information</h6>
                                 <table class="table table-borderless">
@@ -257,7 +278,7 @@ function displayBookDetailModal(book, isbn, edition) {
                                 </table>
                             </div>
                             <div class="col-md-6">
-                                <h6>Pricing & Availability</h6>
+                                <h6>Availability</h6>
                                 <table class="table table-borderless">
                                     <tr>
                                         <th>Price Range:</th>
@@ -289,21 +310,51 @@ function displayBookDetailModal(book, isbn, edition) {
                                 </table>
                             </div>
                         </div>
+                        
+                        ${copies.length > 0 ? `
+                        <div class="mt-4">
+                            <h6>Available Copies</h6>
+                            <p class="text-muted small">Select a copy to add to your cart:</p>
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Price</th>
+                                            <th>Condition</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${copies.map(copy => `
+                                            <tr>
+                                                <td><strong>$${copy.price.toFixed(2)}</strong></td>
+                                                <td><span class="badge bg-info">${escapeHtml(copy.condition)}</span></td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-success" 
+                                                            onclick="addBookToCartById(${copy.bookId})">
+                                                        Add to Cart
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        ` : `
+                        ${copiesError ? `
+                        <div class="alert alert-warning">
+                            <small>Unable to load individual copies. ${escapeHtml(copiesError)}</small>
+                        </div>
+                        ` : `
+                        <div class="alert alert-info">
+                            <small>No copies available at this time.</small>
+                        </div>
+                        `}
+                        `}
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        ${book.availableCount > 0 ? `
-                        <div class="input-group me-2" style="max-width: 200px;">
-                            <input type="number" class="form-control" id="bookIdInput" placeholder="Book ID" min="1">
-                            <button type="button" class="btn btn-primary" 
-                                    onclick="handleAddToCartById()">
-                                Add to Cart
-                            </button>
-                        </div>
-                        <small class="text-muted me-2">Enter a Book ID to add</small>
-                        ` : `
-                        <button type="button" class="btn btn-secondary" disabled>Out of Stock</button>
-                        `}
                     </div>
                 </div>
             </div>
@@ -412,6 +463,7 @@ window.getBooks = getBooks;
 window.getBookById = getBookById;
 window.searchBooks = searchBooks;
 window.getStockCount = getStockCount;
+window.getBookCopies = getBookCopies;
 window.loadBooks = loadBooks;
 window.loadBooksPage = loadBooksPage;
 window.showBookDetail = showBookDetail;

@@ -182,6 +182,30 @@ public class BooksController : ControllerBase
         }
     }
 
+    [HttpGet("copies/{isbn}/{edition}")]
+    public async Task<IActionResult> GetBookCopies(string isbn, string edition)
+    {
+        try
+        {
+            var copies = await _bookService.GetBookCopiesAsync(isbn, edition);
+
+            return Ok(new
+            {
+                success = true,
+                data = copies
+            });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new
+            {
+                success = false,
+                error = "An error occurred while retrieving book copies",
+                statusCode = 500
+            });
+        }
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateBook([FromBody] CreateBookRequest? request)
     {
