@@ -1,0 +1,49 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.log
+
+# Visual Studio
+.vs/
+.vscode/
+*.sln.docstates
+
+# User-specific files
+*.rsuser
+*.userosscache
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+# Node (if you add any later)
+node_modules/
+npm-debug.log
+
+# Environment variables
+.env
+.env.local
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# OS
+.DS_Store
+Thumbs.db
+
