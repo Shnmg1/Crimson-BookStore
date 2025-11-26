@@ -73,7 +73,17 @@ public class CartController : ControllerBase
             }
 
             // Validate request
-            if (request == null || request.BookId <= 0)
+            if (request == null)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Request body is required",
+                    statusCode = 400
+                });
+            }
+
+            if (request.BookId <= 0)
             {
                 return BadRequest(new
                 {
@@ -108,6 +118,17 @@ public class CartController : ControllerBase
             }
             catch (InvalidOperationException ex)
             {
+                // Check if it's a stock availability issue
+                if (ex.Message.Contains("not available") || ex.Message.Contains("out of stock") || ex.Message.Contains("stock"))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        error = ex.Message,
+                        statusCode = 400
+                    });
+                }
+                
                 return BadRequest(new
                 {
                     success = false,

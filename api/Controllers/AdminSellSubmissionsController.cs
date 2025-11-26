@@ -53,6 +53,27 @@ public class AdminSellSubmissionsController : ControllerBase
                 });
             }
 
+            // Validate pagination parameters
+            if (page < 1)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Page number must be greater than 0",
+                    statusCode = 400
+                });
+            }
+
+            if (pageSize < 1 || pageSize > 100)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Page size must be between 1 and 100",
+                    statusCode = 400
+                });
+            }
+
             var submissions = await _sellSubmissionService.GetAdminSubmissionsAsync(status);
 
             // Simple pagination (for school project - keep it simple)
@@ -198,6 +219,17 @@ public class AdminSellSubmissionsController : ControllerBase
                 });
             }
 
+            // Validate offered price
+            if (request.OfferedPrice <= 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Offered price must be greater than 0",
+                    statusCode = 400
+                });
+            }
+
             try
             {
                 var response = await _sellSubmissionService.AdminNegotiateAsync(submissionId, currentUser.UserId, request);
@@ -290,6 +322,17 @@ public class AdminSellSubmissionsController : ControllerBase
                 {
                     success = false,
                     error = "Invalid submission ID",
+                    statusCode = 400
+                });
+            }
+
+            // Validate selling price
+            if (request.SellingPrice <= 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Selling price must be greater than 0",
                     statusCode = 400
                 });
             }

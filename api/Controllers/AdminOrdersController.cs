@@ -53,6 +53,27 @@ public class AdminOrdersController : ControllerBase
                 });
             }
 
+            // Validate pagination parameters
+            if (page < 1)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Page number must be greater than 0",
+                    statusCode = 400
+                });
+            }
+
+            if (pageSize < 1 || pageSize > 100)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Page size must be between 1 and 100",
+                    statusCode = 400
+                });
+            }
+
             var orders = await _orderService.GetAdminOrdersAsync(status);
 
             // Simple pagination (for school project - keep it simple)

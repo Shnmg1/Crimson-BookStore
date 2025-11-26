@@ -77,18 +77,12 @@ async function loadCart() {
 
     try {
         // Show loading state
-        cartItems.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+        showLoadingSpinner(cartItems, 'Loading your cart...');
 
         const response = await getCart();
         
         if (!response.success || !response.data || response.data.length === 0) {
-            cartItems.innerHTML = `
-                <div class="alert alert-info">
-                    <h5>Your cart is empty</h5>
-                    <p>Start shopping to add items to your cart!</p>
-                    <button class="btn btn-primary" onclick="showBooksPage()">Browse Books</button>
-                </div>
-            `;
+            showEmptyState(cartItems, 'Your cart is empty. Start shopping to add items!', 'Browse Books', 'showBooksPage()');
             updateCartBadge(0);
             return;
         }
@@ -97,13 +91,7 @@ async function loadCart() {
         displayCartItems(response.data, response.total);
         updateCartBadge(response.data.length);
     } catch (error) {
-        cartItems.innerHTML = `
-            <div class="alert alert-danger">
-                <h5>Error loading cart</h5>
-                <p>${escapeHtml(error.message)}</p>
-                <button class="btn btn-secondary" onclick="loadCart()">Retry</button>
-            </div>
-        `;
+        showError(cartItems, error, 'Error Loading Cart');
         updateCartBadge(0);
     }
 }
@@ -145,7 +133,7 @@ function displayCartItems(items, total) {
                     <span class="badge bg-info">${escapeHtml(item.bookCondition)}</span>
                 </td>
                 <td>
-                    <button class="btn btn-sm btn-danger" onclick="handleRemoveFromCart(${item.cartItemId})">
+                    <button class="btn btn-sm btn-danger" onclick="handleRemoveFromCart(${item.cartItemId})" data-cart-item-id="${item.cartItemId}">
                         Remove
                     </button>
                 </td>
@@ -165,8 +153,8 @@ function displayCartItems(items, total) {
             </table>
         </div>
         <div class="mt-3 d-flex justify-content-between">
-            <button class="btn btn-secondary" onclick="handleClearCart()">Clear Cart</button>
-            <button class="btn btn-primary btn-lg" onclick="handleCheckout()">Proceed to Checkout</button>
+            <button class="btn btn-secondary" id="clearCartBtn" onclick="handleClearCart()">Clear Cart</button>
+            <button class="btn btn-primary btn-lg" id="checkoutBtn" onclick="handleCheckout()">Proceed to Checkout</button>
         </div>
     `;
 
@@ -175,43 +163,63 @@ function displayCartItems(items, total) {
 
 // Handle remove from cart
 async function handleRemoveFromCart(cartItemId) {
-    if (!confirm('Are you sure you want to remove this item from your cart?')) {
+    const confirmed = await confirmAction(
+        'Are you sure you want to remove this item from your cart?',
+        'Remove Item'
+    );
+    
+    if (!confirmed) {
         return;
     }
 
+    const button = document.querySelector(`button[data-cart-item-id="${cartItemId}"]`);
+    
     try {
+        if (button) setLoadingState(button, true, 'Removing...');
         const response = await removeFromCart(cartItemId);
         
         if (response.success) {
-            showAlert('Item removed from cart', 'success');
+            showToast('Item removed from cart', 'success');
             // Reload cart to update display
             await loadCart();
         } else {
-            showAlert(response.error || 'Failed to remove item', 'danger');
+            showToast(response.error || 'Failed to remove item', 'danger');
         }
     } catch (error) {
-        showAlert(error.message || 'Failed to remove item from cart', 'danger');
+        showToast(error.message || 'Failed to remove item from cart', 'danger');
+    } finally {
+        if (button) setLoadingState(button, false);
     }
 }
 
 // Handle clear cart
 async function handleClearCart() {
-    if (!confirm('Are you sure you want to clear your entire cart? This action cannot be undone.')) {
+    const confirmed = await confirmAction(
+        'Are you sure you want to clear your entire cart? This action cannot be undone.',
+        'Clear Cart'
+    );
+    
+    if (!confirmed) {
         return;
     }
 
+    const button = document.getElementById('clearCartBtn');
+    
     try {
+        if (button) setLoadingState(button, true, 'Clearing...');
         const response = await clearCart();
         
         if (response.success) {
-            showAlert('Cart cleared', 'success');
+            showToast('Cart cleared', 'success');
             // Reload cart to update display
             await loadCart();
         } else {
-            showAlert(response.error || 'Failed to clear cart', 'danger');
+            showToast(response.error || 'Failed to clear cart', 'danger');
         }
     } catch (error) {
-        showAlert(error.message || 'Failed to clear cart', 'danger');
+        showToast(error.message || 'Failed to clear cart', 'danger');
+    } finally {
+        if (button) setLoadingState(button, false);
     }
 }
 
@@ -220,7 +228,7 @@ function handleCheckout() {
     if (typeof showCheckoutPage === 'function') {
         showCheckoutPage();
     } else {
-        showAlert('Checkout page is loading...', 'info');
+        showToast('Checkout page is loading...', 'info');
     }
 }
 

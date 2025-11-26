@@ -23,13 +23,23 @@ async function apiCall(endpoint, options = {}) {
         const data = await response.json();
         
         if (!response.ok) {
-            throw new Error(data.error || `HTTP error! status: ${response.status}`);
+            // Extract error message from response
+            const errorMessage = data.error || data.message || `HTTP error! status: ${response.status}`;
+            const error = new Error(errorMessage);
+            error.statusCode = response.status;
+            error.response = data;
+            throw error;
         }
         
         return data;
     } catch (error) {
         console.error('API call failed:', error);
-        throw error;
+        // If it's already our custom error, re-throw it
+        if (error.message && error.statusCode) {
+            throw error;
+        }
+        // Otherwise, wrap it
+        throw new Error(error.message || 'An unexpected error occurred');
     }
 }
 

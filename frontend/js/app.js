@@ -165,9 +165,9 @@ async function handleLogout() {
             updateCartBadge(0);
         }
         showHomePage();
-        showAlert('Logged out successfully', 'success');
+        showToast('Logged out successfully', 'success');
     } catch (error) {
-        showAlert('Error logging out', 'danger');
+        showToast('Error logging out', 'danger');
     }
 }
 
@@ -281,6 +281,12 @@ function showLoginPage() {
     
     // Handle login form submission
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
+    
+    // Setup form validation
+    setupFormValidation('loginForm', {
+        loginUsername: { required: true, label: 'Username' },
+        loginPassword: { required: true, label: 'Password' }
+    });
 }
 
 function showRegisterPage() {
@@ -306,6 +312,7 @@ function showRegisterPage() {
                                 <div class="col-md-6 mb-3">
                                     <label for="regPassword" class="form-label">Password</label>
                                     <input type="password" class="form-control" id="regPassword" required>
+                                    <small class="form-text text-muted">Must be at least 6 characters</small>
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="regUserType" class="form-label">Account Type</label>
@@ -348,20 +355,31 @@ function showRegisterPage() {
     
     // Handle register form submission
     document.getElementById('registerForm').addEventListener('submit', handleRegister);
+    
+    // Setup form validation
+    setupFormValidation('registerForm', {
+        regUsername: { required: true, minLength: 3, maxLength: 50, label: 'Username' },
+        regEmail: { required: true, email: true, label: 'Email' },
+        regPassword: { required: true, minLength: 6, label: 'Password' },
+        regFirstName: { required: true, maxLength: 100, label: 'First Name' },
+        regLastName: { required: true, maxLength: 100, label: 'Last Name' }
+    });
 }
 
 // Handle login form submission
 async function handleLogin(e) {
     e.preventDefault();
     
+    const submitButton = e.target.querySelector('button[type="submit"]');
     const username = document.getElementById('loginUsername').value;
     const password = document.getElementById('loginPassword').value;
     
     try {
+        setLoadingState(submitButton, true, 'Logging in...');
         const response = await login({ username, password });
         
         if (response.success) {
-            showAlert('Login successful!', 'success');
+            showToast('Login successful!', 'success');
             updateNavigation();
             // Refresh cart badge after login
             if (typeof refreshCartBadge === 'function') {
@@ -369,10 +387,12 @@ async function handleLogin(e) {
             }
             showHomePage();
         } else {
-            showAlert(response.error || 'Login failed', 'danger');
+            showToast(response.error || 'Login failed', 'danger');
         }
     } catch (error) {
-        showAlert(error.message || 'Login failed. Please try again.', 'danger');
+        showToast(error.message || 'Login failed. Please try again.', 'danger');
+    } finally {
+        setLoadingState(submitButton, false);
     }
 }
 
@@ -380,6 +400,7 @@ async function handleLogin(e) {
 async function handleRegister(e) {
     e.preventDefault();
     
+    const submitButton = e.target.querySelector('button[type="submit"]');
     const userData = {
         username: document.getElementById('regUsername').value,
         email: document.getElementById('regEmail').value,
@@ -392,10 +413,11 @@ async function handleRegister(e) {
     };
     
     try {
+        setLoadingState(submitButton, true, 'Registering...');
         const response = await register(userData);
         
         if (response.success) {
-            showAlert('Registration successful! You are now logged in.', 'success');
+            showToast('Registration successful! You are now logged in.', 'success');
             updateNavigation();
             // Refresh cart badge after registration
             if (typeof refreshCartBadge === 'function') {
@@ -403,10 +425,12 @@ async function handleRegister(e) {
             }
             showHomePage();
         } else {
-            showAlert(response.error || 'Registration failed', 'danger');
+            showToast(response.error || 'Registration failed', 'danger');
         }
     } catch (error) {
-        showAlert(error.message || 'Registration failed. Please try again.', 'danger');
+        showToast(error.message || 'Registration failed. Please try again.', 'danger');
+    } finally {
+        setLoadingState(submitButton, false);
     }
 }
 
@@ -442,21 +466,9 @@ function clearSearch() {
     }
 }
 
+// Legacy showAlert function - now uses toast notifications
 function showAlert(message, type = 'info') {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    
-    const app = document.getElementById('app');
-    app.insertBefore(alertDiv, app.firstChild);
-    
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => {
-        alertDiv.remove();
-    }, 5000);
+    showToast(message, type);
 }
 
 // Admin Pages
@@ -665,7 +677,7 @@ async function loadAdminBooks() {
         
         if (response.success && response.data) {
             if (response.data.length === 0) {
-                booksList.innerHTML = '<p class="text-center">No books found.</p>';
+                showEmptyState(booksList, 'No books found.', null, null);
                 return;
             }
             
@@ -703,7 +715,7 @@ async function loadAdminSubmissions() {
         
         if (response.success && response.data) {
             if (response.data.length === 0) {
-                submissionsList.innerHTML = '<p class="text-center">No submissions found.</p>';
+                showEmptyState(submissionsList, 'No submissions found.', null, null);
                 return;
             }
             
@@ -798,7 +810,7 @@ async function loadAdminOrders() {
         
         if (response.success && response.data) {
             if (response.data.length === 0) {
-                ordersList.innerHTML = '<p class="text-center">No orders found.</p>';
+                showEmptyState(ordersList, 'No orders found.', null, null);
                 return;
             }
             
@@ -844,7 +856,7 @@ async function loadAdminUsers() {
         
         if (response.success && response.data) {
             if (response.data.length === 0) {
-                usersList.innerHTML = '<p class="text-center">No users found.</p>';
+                showEmptyState(usersList, 'No users found.', null, null);
                 return;
             }
             
@@ -898,7 +910,12 @@ function getStatusBadgeColor(status) {
 
 // Admin action handlers
 async function updateOrderStatus(orderId, newStatus) {
-    if (!confirm(`Are you sure you want to change order #${orderId} status to ${newStatus}?`)) {
+    const confirmed = await confirmAction(
+        `Are you sure you want to change order #${orderId} status to ${newStatus}?`,
+        'Update Order Status'
+    );
+    
+    if (!confirmed) {
         return;
     }
     
@@ -910,30 +927,39 @@ async function updateOrderStatus(orderId, newStatus) {
         
         const response = await updateOrderStatusAPI(orderId, newStatus);
         if (response.success) {
-            showAlert(`Order status updated to ${newStatus}`, 'success');
+            showToast(`Order status updated to ${newStatus}`, 'success');
             loadAdminOrders();
         } else {
-            showAlert(response.error || 'Failed to update order status', 'danger');
+            showToast(response.error || 'Failed to update order status', 'danger');
         }
     } catch (error) {
-        showAlert(error.message || 'Error updating order status', 'danger');
+        showToast(error.message || 'Error updating order status', 'danger');
     }
 }
 
 async function handleRejectSubmission(submissionId) {
+    const confirmed = await confirmAction(
+        'Are you sure you want to reject this submission?',
+        'Reject Submission'
+    );
+    
+    if (!confirmed) {
+        return;
+    }
+    
     const reason = prompt('Enter rejection reason (optional):');
-    if (reason === null) return; // User cancelled
+    if (reason === null) return; // User cancelled prompt
     
     try {
         const response = await rejectSubmission(submissionId, reason || null);
         if (response.success) {
-            showAlert('Submission rejected', 'success');
+            showToast('Submission rejected', 'success');
             loadAdminSubmissions();
         } else {
-            showAlert(response.error || 'Failed to reject submission', 'danger');
+            showToast(response.error || 'Failed to reject submission', 'danger');
         }
     } catch (error) {
-        showAlert(error.message || 'Error rejecting submission', 'danger');
+        showToast(error.message || 'Error rejecting submission', 'danger');
     }
 }
 
@@ -947,14 +973,14 @@ function showApproveModal(submissionId) {
     approveSubmission(submissionId, parseFloat(sellingPrice))
         .then(response => {
             if (response.success) {
-                showAlert('Submission approved and book added to inventory', 'success');
+                showToast('Submission approved and book added to inventory', 'success');
                 loadAdminSubmissions();
             } else {
-                showAlert(response.error || 'Failed to approve submission', 'danger');
+                showToast(response.error || 'Failed to approve submission', 'danger');
             }
         })
         .catch(error => {
-            showAlert(error.message || 'Error approving submission', 'danger');
+            showToast(error.message || 'Error approving submission', 'danger');
         });
 }
 
@@ -973,14 +999,14 @@ function showNegotiateModal(submissionId) {
     })
         .then(response => {
             if (response.success) {
-                showAlert('Counter-offer submitted', 'success');
+                showToast('Counter-offer submitted', 'success');
                 loadAdminSubmissions();
             } else {
-                showAlert(response.error || 'Failed to submit counter-offer', 'danger');
+                showToast(response.error || 'Failed to submit counter-offer', 'danger');
             }
         })
         .catch(error => {
-            showAlert(error.message || 'Error submitting counter-offer', 'danger');
+            showToast(error.message || 'Error submitting counter-offer', 'danger');
         });
 }
 
@@ -989,7 +1015,7 @@ async function showAdminSubmissionDetails(submissionId) {
         const response = await window.getAdminSubmissionDetails(submissionId);
         
         if (!response.success || !response.data) {
-            showAlert('Failed to load submission details', 'danger');
+            showToast('Failed to load submission details', 'danger');
             return;
         }
         
@@ -1165,7 +1191,7 @@ async function showAdminSubmissionDetails(submissionId) {
             </div>
         `;
     } catch (error) {
-        showAlert(error.message || 'Error loading submission details', 'danger');
+        showToast(error.message || 'Error loading submission details', 'danger');
     }
 }
 
@@ -1256,21 +1282,30 @@ async function handleAddBook() {
     try {
         const response = await createBook(bookData);
         if (response.success) {
-            showAlert('Book added successfully', 'success');
+            showToast('Book added successfully', 'success');
             bootstrap.Modal.getInstance(document.getElementById('addBookModal')).hide();
             loadAdminBooks();
         } else {
-            showAlert(response.error || 'Failed to add book', 'danger');
+            showToast(response.error || 'Failed to add book', 'danger');
         }
     } catch (error) {
-        showAlert(error.message || 'Error adding book', 'danger');
+        showToast(error.message || 'Error adding book', 'danger');
     }
 }
 
 async function handleDeleteBook(isbn, edition) {
+    const confirmed = await confirmAction(
+        `Are you sure you want to delete this book (${isbn}, ${edition})? This action cannot be undone.`,
+        'Delete Book'
+    );
+    
+    if (!confirmed) {
+        return;
+    }
+    
     // Note: This is simplified - in a real app, you'd need to get the actual BookID
     // For now, we'll show a message that this needs the BookID
-    showAlert('Delete functionality requires BookID. Please use the API directly or enhance this feature.', 'info');
+    showToast('Delete functionality requires BookID. Please use the API directly or enhance this feature.', 'info');
 }
 
 // Export admin functions

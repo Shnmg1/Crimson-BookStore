@@ -36,7 +36,19 @@ public class OrdersController : ControllerBase
             }
 
             // PaymentMethodId is optional (nullable for one-time payments)
+            // If provided, it will be validated in the service layer for ownership
             var paymentMethodId = request?.PaymentMethodId;
+            
+            // Validate paymentMethodId if provided
+            if (paymentMethodId.HasValue && paymentMethodId.Value <= 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Invalid payment method ID",
+                    statusCode = 400
+                });
+            }
 
             try
             {
@@ -50,11 +62,62 @@ public class OrdersController : ControllerBase
             }
             catch (InvalidOperationException ex)
             {
+                // Check for specific error types
+                if (ex.Message.Contains("cart") || ex.Message.Contains("empty"))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        error = ex.Message,
+                        statusCode = 400
+                    });
+                }
+                
+                if (ex.Message.Contains("available") || ex.Message.Contains("stock"))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        error = ex.Message,
+                        statusCode = 400
+                    });
+                }
+
                 return BadRequest(new
                 {
                     success = false,
                     error = ex.Message,
                     statusCode = 400
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                // Payment method not found
+                if (ex.Message.Contains("payment") || ex.Message.Contains("PaymentMethod"))
+                {
+                    return NotFound(new
+                    {
+                        success = false,
+                        error = ex.Message,
+                        statusCode = 404
+                    });
+                }
+
+                return NotFound(new
+                {
+                    success = false,
+                    error = ex.Message,
+                    statusCode = 404
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                // Payment method doesn't belong to user
+                return StatusCode(403, new
+                {
+                    success = false,
+                    error = ex.Message,
+                    statusCode = 403
                 });
             }
         }
@@ -227,6 +290,18 @@ public class OrdersController : ControllerBase
                 {
                     success = false,
                     error = "Status is required",
+                    statusCode = 400
+                });
+            }
+
+            // Validate status value
+            var validStatuses = new[] { "New", "Processing", "Fulfilled", "Cancelled" };
+            if (!validStatuses.Contains(request.Status))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Status must be one of: New, Processing, Fulfilled, or Cancelled",
                     statusCode = 400
                 });
             }

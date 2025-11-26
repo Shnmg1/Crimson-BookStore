@@ -33,6 +33,27 @@ public class BooksController : ControllerBase
     {
         try
         {
+            // Validate pagination parameters
+            if (page < 1)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Page number must be greater than 0",
+                    statusCode = 400
+                });
+            }
+
+            if (pageSize < 1 || pageSize > 100)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Page size must be between 1 and 100",
+                    statusCode = 400
+                });
+            }
+
             var books = await _bookService.GetAvailableBooksAsync(search, isbn, courseMajor);
 
             // Simple pagination (for school project - keep it simple)
@@ -70,6 +91,17 @@ public class BooksController : ControllerBase
     {
         try
         {
+            // Validate ID
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Invalid book ID",
+                    statusCode = 400
+                });
+            }
+
             var book = await _bookService.GetBookByIdAsync(id);
 
             if (book == null)
@@ -243,6 +275,93 @@ public class BooksController : ControllerBase
                 });
             }
 
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(request.ISBN))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "ISBN is required",
+                    statusCode = 400
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Title))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Title is required",
+                    statusCode = 400
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Author))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Author is required",
+                    statusCode = 400
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Edition))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Edition is required",
+                    statusCode = 400
+                });
+            }
+
+            // Validate prices
+            if (request.SellingPrice <= 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Selling price must be greater than 0",
+                    statusCode = 400
+                });
+            }
+
+            if (request.AcquisitionCost < 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Acquisition cost cannot be negative",
+                    statusCode = 400
+                });
+            }
+
+            // Validate business rule: SellingPrice > AcquisitionCost
+            if (request.SellingPrice <= request.AcquisitionCost)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Selling price must be greater than acquisition cost",
+                    statusCode = 400
+                });
+            }
+
+            // Validate book condition
+            if (!string.IsNullOrWhiteSpace(request.BookCondition) &&
+                request.BookCondition != "New" && 
+                request.BookCondition != "Good" && 
+                request.BookCondition != "Fair")
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Book condition must be 'New', 'Good', or 'Fair'",
+                    statusCode = 400
+                });
+            }
+
             try
             {
                 var bookId = await _bookService.CreateBookAsync(request);
@@ -320,6 +439,44 @@ public class BooksController : ControllerBase
                 {
                     success = false,
                     error = "Invalid book ID",
+                    statusCode = 400
+                });
+            }
+
+            // Validate prices if provided
+            if (request.SellingPrice.HasValue && request.SellingPrice.Value <= 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Selling price must be greater than 0",
+                    statusCode = 400
+                });
+            }
+
+            // Validate book condition if provided
+            if (!string.IsNullOrWhiteSpace(request.BookCondition) &&
+                request.BookCondition != "New" && 
+                request.BookCondition != "Good" && 
+                request.BookCondition != "Fair")
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Book condition must be 'New', 'Good', or 'Fair'",
+                    statusCode = 400
+                });
+            }
+
+            // Validate status if provided
+            if (!string.IsNullOrWhiteSpace(request.Status) &&
+                request.Status != "Available" && 
+                request.Status != "Sold")
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Status must be 'Available' or 'Sold'",
                     statusCode = 400
                 });
             }

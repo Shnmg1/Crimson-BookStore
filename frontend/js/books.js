@@ -69,12 +69,12 @@ async function loadBooks(searchTerm = null, page = 1) {
 
     try {
         // Show loading state
-        booksList.innerHTML = '<div class="col-12 text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+        showLoadingSpinner(booksList, 'Loading books...');
 
         const response = await getBooks(searchTerm, null, null, page);
         
         if (!response.success || !response.data || response.data.length === 0) {
-            booksList.innerHTML = '<div class="col-12 text-center"><p class="text-muted">No books found.</p></div>';
+            showEmptyState(booksList, 'No books found. Try adjusting your search.', 'Clear Search', 'clearSearch()');
             return;
         }
 

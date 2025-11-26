@@ -45,6 +45,81 @@ public class SellSubmissionsController : ControllerBase
                 });
             }
 
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(request.ISBN))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "ISBN is required",
+                    statusCode = 400
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Title))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Title is required",
+                    statusCode = 400
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Author))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Author is required",
+                    statusCode = 400
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Edition))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Edition is required",
+                    statusCode = 400
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.PhysicalCondition))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Physical condition is required",
+                    statusCode = 400
+                });
+            }
+
+            // Validate physical condition
+            if (request.PhysicalCondition != "New" && 
+                request.PhysicalCondition != "Good" && 
+                request.PhysicalCondition != "Fair")
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Physical condition must be 'New', 'Good', or 'Fair'",
+                    statusCode = 400
+                });
+            }
+
+            // Validate asking price
+            if (request.AskingPrice <= 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Asking price must be greater than 0",
+                    statusCode = 400
+                });
+            }
+
             try
             {
                 var submission = await _sellSubmissionService.CreateSellSubmissionAsync(currentUser.UserId, request);
@@ -213,6 +288,54 @@ public class SellSubmissionsController : ControllerBase
                 {
                     success = false,
                     error = "Invalid submission ID",
+                    statusCode = 400
+                });
+            }
+
+            // Validate action
+            if (string.IsNullOrWhiteSpace(request.Action))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Action is required (accept, reject, or counter)",
+                    statusCode = 400
+                });
+            }
+
+            var validActions = new[] { "accept", "reject", "counter" };
+            if (!validActions.Contains(request.Action.ToLower()))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Action must be 'accept', 'reject', or 'counter'",
+                    statusCode = 400
+                });
+            }
+
+            // Validate counter-offer requirements
+            if (request.Action.ToLower() == "counter")
+            {
+                if (!request.OfferedPrice.HasValue || request.OfferedPrice.Value <= 0)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        error = "Offered price is required and must be greater than 0 for counter-offers",
+                        statusCode = 400
+                    });
+                }
+            }
+
+            // Validate accept/reject requirements
+            if ((request.Action.ToLower() == "accept" || request.Action.ToLower() == "reject") &&
+                !request.NegotiationId.HasValue)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Negotiation ID is required for accept or reject actions",
                     statusCode = 400
                 });
             }

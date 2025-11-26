@@ -102,12 +102,55 @@ public class PaymentMethodsController : ControllerBase
                 });
             }
 
+            // Validate last four digits format (exactly 4 numeric digits)
+            if (request.LastFourDigits.Length != 4 || !request.LastFourDigits.All(char.IsDigit))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Last four digits must be exactly 4 numeric digits",
+                    statusCode = 400
+                });
+            }
+
             if (string.IsNullOrWhiteSpace(request.ExpirationDate))
             {
                 return BadRequest(new
                 {
                     success = false,
                     error = "Expiration date is required",
+                    statusCode = 400
+                });
+            }
+
+            // Validate expiration date format (MM/YYYY)
+            var expirationParts = request.ExpirationDate.Split('/');
+            if (expirationParts.Length != 2)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Expiration date must be in MM/YYYY format (e.g., 12/2025)",
+                    statusCode = 400
+                });
+            }
+
+            if (!int.TryParse(expirationParts[0], out int month) || month < 1 || month > 12)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Expiration month must be between 01 and 12",
+                    statusCode = 400
+                });
+            }
+
+            if (!int.TryParse(expirationParts[1], out int year) || year < 2000 || year > 2099)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Expiration year must be between 2000 and 2099",
                     statusCode = 400
                 });
             }

@@ -19,10 +19,21 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    public async Task<IActionResult> Register([FromBody] RegisterRequest? request)
     {
         try
         {
+            // Validate request body
+            if (request == null)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Request body is required",
+                    statusCode = 400
+                });
+            }
+
             // Basic validation
             if (string.IsNullOrWhiteSpace(request.Username))
             {
@@ -30,6 +41,17 @@ public class AuthController : ControllerBase
                 {
                     success = false,
                     error = "Username is required",
+                    statusCode = 400
+                });
+            }
+
+            // Validate username length
+            if (request.Username.Length < 3 || request.Username.Length > 50)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Username must be between 3 and 50 characters",
                     statusCode = 400
                 });
             }
@@ -44,6 +66,25 @@ public class AuthController : ControllerBase
                 });
             }
 
+            // Validate email format
+            try
+            {
+                var emailAddr = new System.Net.Mail.MailAddress(request.Email);
+                if (emailAddr.Address != request.Email)
+                {
+                    throw new FormatException();
+                }
+            }
+            catch
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Invalid email format",
+                    statusCode = 400
+                });
+            }
+
             if (string.IsNullOrWhiteSpace(request.Password))
             {
                 return BadRequest(new
@@ -54,12 +95,34 @@ public class AuthController : ControllerBase
                 });
             }
 
+            // Validate password length
+            if (request.Password.Length < 6)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Password must be at least 6 characters long",
+                    statusCode = 400
+                });
+            }
+
             if (string.IsNullOrWhiteSpace(request.FirstName) || string.IsNullOrWhiteSpace(request.LastName))
             {
                 return BadRequest(new
                 {
                     success = false,
                     error = "First name and last name are required",
+                    statusCode = 400
+                });
+            }
+
+            // Validate name lengths
+            if (request.FirstName.Length > 100 || request.LastName.Length > 100)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "First name and last name must be 100 characters or less",
                     statusCode = 400
                 });
             }
@@ -112,10 +175,21 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    public async Task<IActionResult> Login([FromBody] LoginRequest? request)
     {
         try
         {
+            // Validate request body
+            if (request == null)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Request body is required",
+                    statusCode = 400
+                });
+            }
+
             // Basic validation
             if (string.IsNullOrWhiteSpace(request.Username))
             {
