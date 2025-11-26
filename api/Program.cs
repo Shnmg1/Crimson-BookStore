@@ -26,6 +26,7 @@ builder.Services.AddScoped<IDatabaseService, DatabaseService>();
 builder.Services.AddSingleton<ISessionService, SessionService>(); // Singleton for in-memory session storage
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IBookService, BookService>();
+builder.Services.AddScoped<ICartService, CartService>();
 
 var app = builder.Build();
 

@@ -292,14 +292,18 @@ function displayBookDetailModal(book, isbn, edition) {
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-primary" 
-                                id="addToCartBtn"
-                                data-isbn="${escapeHtml(book.isbn)}"
-                                data-edition="${escapeHtml(book.edition)}"
-                                ${book.availableCount === 0 ? 'disabled' : ''}
-                                onclick="handleAddToCart('${escapeHtml(book.isbn)}', '${escapeHtml(book.edition)}')">
-                            ${book.availableCount > 0 ? 'Add to Cart' : 'Out of Stock'}
-                        </button>
+                        ${book.availableCount > 0 ? `
+                        <div class="input-group me-2" style="max-width: 200px;">
+                            <input type="number" class="form-control" id="bookIdInput" placeholder="Book ID" min="1">
+                            <button type="button" class="btn btn-primary" 
+                                    onclick="handleAddToCartById()">
+                                Add to Cart
+                            </button>
+                        </div>
+                        <small class="text-muted me-2">Enter a Book ID to add</small>
+                        ` : `
+                        <button type="button" class="btn btn-secondary" disabled>Out of Stock</button>
+                        `}
                     </div>
                 </div>
             </div>
@@ -325,23 +329,75 @@ function displayBookDetailModal(book, isbn, edition) {
     });
 }
 
-// Handle Add to Cart (placeholder - will be implemented in Step 14)
-function handleAddToCart(isbn, edition) {
+// Handle Add to Cart by BookID (from modal input)
+async function handleAddToCartById() {
+    const bookIdInput = document.getElementById('bookIdInput');
+    if (!bookIdInput) {
+        showAlert('Book ID input not found', 'danger');
+        return;
+    }
+
+    const bookId = parseInt(bookIdInput.value);
+    if (!bookId || bookId <= 0) {
+        showAlert('Please enter a valid Book ID', 'warning');
+        return;
+    }
+
     if (!isAuthenticated()) {
         showAlert('Please log in to add items to your cart', 'warning');
-        // Close modal and show login page
         const modal = bootstrap.Modal.getInstance(document.getElementById('bookDetailModal'));
         if (modal) modal.hide();
         setTimeout(() => showLoginPage(), 300);
         return;
     }
 
-    // Placeholder - will be implemented in Step 14
-    showAlert(`Add to Cart functionality will be implemented in Step 14.\n\nISBN: ${isbn}\nEdition: ${edition}`, 'info');
-    
-    // Close modal
-    const modal = bootstrap.Modal.getInstance(document.getElementById('bookDetailModal'));
-    if (modal) modal.hide();
+    try {
+        // First verify the book exists and matches the ISBN+Edition
+        const bookDetail = await getBookById(bookId);
+        
+        if (!bookDetail.success || !bookDetail.data) {
+            showAlert('Book not found. Please enter a valid Book ID.', 'danger');
+            return;
+        }
+
+        // Add to cart
+        const response = await addToCart(bookId);
+        
+        if (response.success) {
+            showAlert('Book added to cart successfully!', 'success');
+            // Refresh cart badge
+            await refreshCartBadge();
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('bookDetailModal'));
+            if (modal) modal.hide();
+        } else {
+            showAlert(response.error || 'Failed to add book to cart', 'danger');
+        }
+    } catch (error) {
+        showAlert(error.message || 'Failed to add book to cart', 'danger');
+    }
+}
+
+// Add book to cart by BookID (new function for direct book ID)
+async function addBookToCartById(bookId) {
+    if (!isAuthenticated()) {
+        showAlert('Please log in to add items to your cart', 'warning');
+        return;
+    }
+
+    try {
+        const response = await addToCart(bookId);
+        
+        if (response.success) {
+            showAlert('Book added to cart successfully!', 'success');
+            // Refresh cart badge
+            await refreshCartBadge();
+        } else {
+            showAlert(response.error || 'Failed to add book to cart', 'danger');
+        }
+    } catch (error) {
+        showAlert(error.message || 'Failed to add book to cart', 'danger');
+    }
 }
 
 // Escape HTML to prevent XSS
@@ -359,5 +415,6 @@ window.getStockCount = getStockCount;
 window.loadBooks = loadBooks;
 window.loadBooksPage = loadBooksPage;
 window.showBookDetail = showBookDetail;
-window.handleAddToCart = handleAddToCart;
+window.handleAddToCartById = handleAddToCartById;
+window.addBookToCartById = addBookToCartById;
 

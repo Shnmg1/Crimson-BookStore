@@ -22,6 +22,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Update navigation based on auth status
     updateNavigation();
+    
+    // Load cart badge count if authenticated
+    if (isAuthenticated() && typeof refreshCartBadge === 'function') {
+        refreshCartBadge();
+    }
 });
 
 function setupNavigation() {
@@ -81,6 +86,10 @@ async function handleLogout() {
     try {
         await logout();
         updateNavigation();
+        // Reset cart badge
+        if (typeof updateCartBadge === 'function') {
+            updateCartBadge(0);
+        }
         showHomePage();
         showAlert('Logged out successfully', 'success');
     } catch (error) {
@@ -142,15 +151,30 @@ function showBooksPage() {
 }
 
 function showCartPage() {
+    if (!isAuthenticated()) {
+        showAlert('Please log in to view your cart', 'warning');
+        showLoginPage();
+        return;
+    }
+
     const app = document.getElementById('app');
     app.innerHTML = `
-        <h2>Shopping Cart</h2>
+        <div class="row mb-3">
+            <div class="col">
+                <h2>Shopping Cart</h2>
+            </div>
+        </div>
         <div id="cartItems">
-            <p>Your cart is empty.</p>
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
         </div>
     `;
     
-    // TODO: Load cart from API
+    // Load cart from API
+    loadCart();
 }
 
 function showLoginPage() {
@@ -265,6 +289,10 @@ async function handleLogin(e) {
         if (response.success) {
             showAlert('Login successful!', 'success');
             updateNavigation();
+            // Refresh cart badge after login
+            if (typeof refreshCartBadge === 'function') {
+                refreshCartBadge();
+            }
             showHomePage();
         } else {
             showAlert(response.error || 'Login failed', 'danger');
@@ -295,6 +323,10 @@ async function handleRegister(e) {
         if (response.success) {
             showAlert('Registration successful! You are now logged in.', 'success');
             updateNavigation();
+            // Refresh cart badge after registration
+            if (typeof refreshCartBadge === 'function') {
+                refreshCartBadge();
+            }
             showHomePage();
         } else {
             showAlert(response.error || 'Registration failed', 'danger');
