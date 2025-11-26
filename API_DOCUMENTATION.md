@@ -210,6 +210,7 @@ Get list of all available books with stock counts. Books are grouped by ISBN and
       "minPrice": 45.99,
       "maxPrice": 55.99,
       "availableCount": 3,
+      "availableBookIds": [1, 2, 3],
       "availableConditions": ["New", "Good"],
       "courseMajor": "MIS 301"
     }
@@ -226,6 +227,7 @@ Get list of all available books with stock counts. Books are grouped by ISBN and
 **Important Notes:**
 - Books are **grouped by ISBN + Edition** (multiple physical copies shown as one entry)
 - `availableCount` is calculated dynamically: `COUNT(*) WHERE ISBN=? AND Edition=? AND Status='Available'`
+- `availableBookIds` is an array of BookID values for all available copies of this ISBN+Edition group
 - `minPrice` and `maxPrice` show the price range for all available copies
 - `availableConditions` lists all available conditions (New, Good, Fair)
 - Only books with `Status = 'Available'` are returned
@@ -325,6 +327,46 @@ Get stock count for a specific ISBN and edition.
 - `500 Internal Server Error` - Server error
 
 **Note:** Stock count is calculated dynamically by counting available books with matching ISBN and Edition.
+
+---
+
+#### GET `/api/books/copies/{isbn}/{edition}`
+Get individual book copies for a specific ISBN and edition. Returns all available copies with their BookID, price, and condition.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "bookId": 1,
+      "price": 45.99,
+      "condition": "New"
+    },
+    {
+      "bookId": 2,
+      "price": 49.99,
+      "condition": "Good"
+    },
+    {
+      "bookId": 3,
+      "price": 55.99,
+      "condition": "New"
+    }
+  ]
+}
+```
+
+**Field Descriptions:**
+- `bookId`: Unique BookID for this specific physical copy
+- `price`: Selling price for this copy
+- `condition`: Book condition (New, Good, Fair)
+
+**Status Codes:**
+- `200 OK` - Success (returns empty array if no copies available)
+- `500 Internal Server Error` - Server error
+
+**Note:** Copies are ordered by condition (New, Good, Fair) and then by price (ascending). This endpoint is useful for allowing users to select a specific copy when multiple copies are available.
 
 ---
 
@@ -690,7 +732,7 @@ Submit a book for sale to the bookstore.
 Get current user's sell submissions.
 
 **Query Parameters:**
-- `status` (optional) - Filter by status (Pending Review, Approved, Rejected)
+- `status` (optional) - Filter by status (Pending Review, Approved, Rejected, Completed)
 
 **Response:**
 ```json
@@ -715,6 +757,12 @@ Get current user's sell submissions.
 - `200 OK` - Success
 - `401 Unauthorized` - Not logged in
 - `500 Internal Server Error` - Server error
+
+**Note:** Status values include:
+- `Pending Review`: Initial submission, awaiting admin review
+- `Approved`: Customer has accepted an admin offer, awaiting admin final approval
+- `Rejected`: Submission has been rejected
+- `Completed`: Submission has been approved and book has been created in inventory
 
 ---
 
@@ -778,21 +826,40 @@ or counter-offer:
 }
 ```
 
+or reject:
+```json
+{
+  "action": "reject",
+  "negotiationId": 1
+}
+```
+
+**Field Requirements:**
+- `action` (required): One of "accept", "reject", or "counter"
+- `negotiationId` (required for accept/reject): ID of the negotiation to accept or reject
+- `offeredPrice` (required for counter): Customer's counter-offer price
+- `offerMessage` (optional for counter): Optional message with counter-offer
+
 **Response:**
 ```json
 {
   "success": true,
   "data": {
-    "submissionId": 50,
-    "status": "Approved",
+    "negotiationId": 1,
+    "offerStatus": "Accepted",
     "message": "Price accepted. Book will be added to inventory."
   }
 }
 ```
 
+**Business Rules:**
+- **Accept**: Customer can only accept the **latest pending admin offer**. Older offers are automatically rejected when a new admin offer is made.
+- **Reject**: Customer can only reject admin offers. If this is the only pending offer, the submission status becomes "Rejected". If other pending offers exist, only this offer is rejected.
+- **Counter**: Customer can only counter admin offers. Creates a new negotiation round with status "Pending".
+
 **Status Codes:**
 - `200 OK` - Action processed
-- `400 Bad Request` - Invalid action or price
+- `400 Bad Request` - Invalid action, price, or negotiation (e.g., trying to accept an old offer)
 - `401 Unauthorized` - Not logged in
 - `403 Forbidden` - Not your submission
 - `404 Not Found` - Submission or negotiation not found
@@ -806,7 +873,7 @@ or counter-offer:
 Get all sell submissions (Admin Only).
 
 **Query Parameters:**
-- `status` (optional) - Filter by status
+- `status` (optional) - Filter by status (Pending Review, Approved, Rejected, Completed)
 - `page` (optional) - Page number
 - `pageSize` (optional) - Items per page
 
@@ -821,9 +888,24 @@ Get all sell submissions (Admin Only).
       "username": "johndoe",
       "isbn": "978-0123456789",
       "title": "Database Systems",
+      "author": "John Smith",
+      "edition": "5th",
       "askingPrice": 30.00,
+      "physicalCondition": "Good",
+      "courseMajor": "MIS 301",
       "status": "Pending Review",
-      "submissionDate": "2024-01-15T10:30:00Z"
+      "submissionDate": "2024-01-15T10:30:00Z",
+      "negotiations": [
+        {
+          "negotiationId": 1,
+          "offeredBy": "Admin",
+          "offeredPrice": 25.00,
+          "offerDate": "2024-01-16T09:00:00Z",
+          "offerMessage": "We can offer $25 based on condition",
+          "offerStatus": "Pending",
+          "roundNumber": 1
+        }
+      ]
     }
   ]
 }
@@ -832,6 +914,58 @@ Get all sell submissions (Admin Only).
 **Status Codes:**
 - `200 OK` - Success
 - `403 Forbidden` - Admin access required
+- `500 Internal Server Error` - Server error
+
+---
+
+#### GET `/api/admin/sell-submissions/{submissionId}`
+Get detailed information about a specific sell submission, including full negotiation history (Admin Only).
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "submissionId": 50,
+    "userId": 5,
+    "username": "johndoe",
+    "isbn": "978-0123456789",
+    "title": "Database Systems",
+    "author": "John Smith",
+    "edition": "5th",
+    "askingPrice": 30.00,
+    "physicalCondition": "Good",
+    "courseMajor": "MIS 301",
+    "status": "Pending Review",
+    "submissionDate": "2024-01-15T10:30:00Z",
+    "negotiations": [
+      {
+        "negotiationId": 1,
+        "offeredBy": "Admin",
+        "offeredPrice": 25.00,
+        "offerDate": "2024-01-16T09:00:00Z",
+        "offerMessage": "We can offer $25 based on condition",
+        "offerStatus": "Pending",
+        "roundNumber": 1
+      },
+      {
+        "negotiationId": 2,
+        "offeredBy": "User",
+        "offeredPrice": 27.50,
+        "offerDate": "2024-01-16T10:00:00Z",
+        "offerMessage": "Can we meet at $27.50?",
+        "offerStatus": "Pending",
+        "roundNumber": 2
+      }
+    ]
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `403 Forbidden` - Admin access required
+- `404 Not Found` - Submission not found
 - `500 Internal Server Error` - Server error
 
 ---
@@ -847,6 +981,10 @@ Admin makes a counter-offer in price negotiation.
 }
 ```
 
+**Field Requirements:**
+- `offeredPrice` (required): Admin's offer price (must be > 0)
+- `offerMessage` (optional): Optional message with the offer
+
 **Response:**
 ```json
 {
@@ -860,9 +998,14 @@ Admin makes a counter-offer in price negotiation.
 }
 ```
 
+**Business Rules:**
+- Admin can only negotiate when submission status is "Pending Review" and there isn't a pending admin offer, OR when the last pending offer is from a user
+- When admin makes a new offer, **all previous pending admin offers are automatically rejected** (superseded by the new offer)
+- Each negotiation round increments the round number
+
 **Status Codes:**
 - `201 Created` - Counter-offer created
-- `400 Bad Request` - Validation error
+- `400 Bad Request` - Validation error (e.g., invalid price, submission not in correct status)
 - `403 Forbidden` - Admin access required
 - `404 Not Found` - Submission not found
 - `500 Internal Server Error` - Server error
@@ -879,7 +1022,14 @@ Approve a sell submission and create book in inventory.
 }
 ```
 
-**Note**: `AcquisitionCost` comes from the accepted negotiation price.
+**Field Requirements:**
+- `sellingPrice` (required): The price at which the book will be sold (must be > 0)
+
+**Business Rules:**
+- **Initial Approval** (no negotiations): Submission must be in "Pending Review" status. `AcquisitionCost` = `AskingPrice`. `SellingPrice` must be > `AskingPrice`.
+- **Negotiated Approval** (after customer accepts): Submission must be in "Approved" status (customer has accepted an offer). `AcquisitionCost` = accepted negotiation `OfferedPrice`. `SellingPrice` must be > accepted `OfferedPrice`.
+- **Re-approval Prevention**: If a book already exists for this submission (SubmissionID in Book table), approval is rejected with error "This submission has already been approved and a book has been created. Cannot approve again."
+- After successful approval, submission status is set to **"Completed"** (not "Approved") to indicate the book has been created.
 
 **Response:**
 ```json
@@ -888,17 +1038,22 @@ Approve a sell submission and create book in inventory.
   "data": {
     "submissionId": 50,
     "bookId": 100,
-    "status": "Approved"
+    "status": "Completed"
   }
 }
 ```
 
 **Status Codes:**
 - `200 OK` - Submission approved, book created
-- `400 Bad Request` - No accepted negotiation or sellingPrice <= acquisitionCost
+- `400 Bad Request` - Validation error:
+  - `SellingPrice` <= `AcquisitionCost`
+  - Submission not in correct status for approval type
 - `403 Forbidden` - Admin access required
 - `404 Not Found` - Submission not found
+- `409 Conflict` - Book already exists for this submission (cannot approve again)
 - `500 Internal Server Error` - Server error
+
+**Note:** The book is created in a single transaction with the submission status update. If book creation fails, the entire operation is rolled back.
 
 ---
 
@@ -1187,13 +1342,17 @@ All endpoints return appropriate HTTP status codes:
 Critical operations should use database transactions:
 - Checkout (create order, update books, create payment, clear cart)
 - Order cancellation (update order, restock books)
-- Approve sell submission (update submission, create book)
+- Approve sell submission (update submission status to "Completed", create book)
+- Price negotiation (accept/reject updates multiple tables atomically)
 
 ### Validation
 - Stock availability must be checked before adding to cart
 - Stock must be verified again before checkout
 - `SellingPrice > AcquisitionCost` must be enforced
 - Order status transitions must be validated
+- Sell submission approval: Check if book already exists (prevent re-approval)
+- Price negotiation: Only latest pending admin offer can be accepted/rejected by customer
+- Price negotiation: Admin offers automatically reject previous pending admin offers
 
 ### Payment Handling
 - `PaymentMethodID` can be NULL for one-time payments (when user doesn't use a saved payment method)
@@ -1220,8 +1379,30 @@ Critical operations should use database transactions:
 - Only books with `Status = 'Available'` are included in results
 - Pagination is simple in-memory pagination after grouping (for school project)
 
+### Sell Submission Status Flow
+
+**Status Values:**
+- `Pending Review`: Initial submission, awaiting admin review
+- `Approved`: Customer has accepted an admin offer, awaiting admin final approval with selling price
+- `Rejected`: Submission has been rejected (either by admin or customer rejecting all offers)
+- `Completed`: Submission has been approved, book created in inventory, process complete
+
+**Status Transitions:**
+1. **Initial Submission**: `Pending Review`
+2. **Admin Negotiates**: Still `Pending Review` (negotiation added)
+3. **Customer Accepts Offer**: `Pending Review` → `Approved`
+4. **Customer Rejects All Offers**: `Pending Review` → `Rejected` (if last pending offer)
+5. **Admin Approves (Final)**: `Pending Review` or `Approved` → `Completed` (book created)
+6. **Admin Rejects**: `Pending Review` → `Rejected`
+
+**Important Notes:**
+- Once status is `Completed`, the submission cannot be approved again (book already exists)
+- Status `Approved` means customer accepted an offer, but admin still needs to set selling price and create book
+- Multiple negotiation rounds can occur while status remains `Pending Review`
+- Admin can make multiple offers; new offers automatically reject old pending admin offers
+
 ---
 
-**Last Updated**: 2024-01-15
-**API Version**: 1.0
+**Last Updated**: 2024-01-20
+**API Version**: 1.1
 

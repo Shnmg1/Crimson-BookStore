@@ -425,57 +425,73 @@ async function showSubmissionDetails(submissionId) {
                 <div class="card-body">
                     ${submission.negotiations && submission.negotiations.length > 0 ? `
                         <div class="timeline">
-                            ${submission.negotiations.map((negotiation, index) => {
-                                const offerDate = new Date(negotiation.offerDate);
-                                const offerStatusBadgeClass = {
-                                    'Pending': 'bg-warning',
-                                    'Accepted': 'bg-success',
-                                    'Rejected': 'bg-danger'
-                                }[negotiation.offerStatus] || 'bg-secondary';
+                            ${(() => {
+                                // Find the latest pending admin offer
+                                const latestPendingAdminOffer = submission.negotiations
+                                    .filter(n => n.offeredBy === 'Admin' && n.offerStatus === 'Pending')
+                                    .sort((a, b) => b.roundNumber - a.roundNumber)[0];
+                                
+                                return submission.negotiations.map((negotiation, index) => {
+                                    const offerDate = new Date(negotiation.offerDate);
+                                    const offerStatusBadgeClass = {
+                                        'Pending': 'bg-warning',
+                                        'Accepted': 'bg-success',
+                                        'Rejected': 'bg-danger'
+                                    }[negotiation.offerStatus] || 'bg-secondary';
+                                    
+                                    const isLatestPending = latestPendingAdminOffer && 
+                                        negotiation.negotiationId === latestPendingAdminOffer.negotiationId;
 
-                                return `
-                                    <div class="card mb-3 ${negotiation.offerStatus === 'Pending' ? 'border-warning' : ''}">
-                                        <div class="card-body">
-                                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                                <div>
-                                                    <h6 class="mb-0">
-                                                        Round ${negotiation.roundNumber} - ${negotiation.offeredBy === 'Admin' ? 'Admin Offer' : 'Your Counter-Offer'}
-                                                    </h6>
-                                                    <small class="text-muted">${offerDate.toLocaleDateString()} ${offerDate.toLocaleTimeString()}</small>
+                                    return `
+                                        <div class="card mb-3 ${negotiation.offerStatus === 'Pending' ? 'border-warning' : ''}">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                                    <div>
+                                                        <h6 class="mb-0">
+                                                            Round ${negotiation.roundNumber} - ${negotiation.offeredBy === 'Admin' ? 'Admin Offer' : 'Your Counter-Offer'}
+                                                        </h6>
+                                                        <small class="text-muted">${offerDate.toLocaleDateString()} ${offerDate.toLocaleTimeString()}</small>
+                                                    </div>
+                                                    <span class="badge ${offerStatusBadgeClass}">${escapeHtml(negotiation.offerStatus)}</span>
                                                 </div>
-                                                <span class="badge ${offerStatusBadgeClass}">${escapeHtml(negotiation.offerStatus)}</span>
-                                            </div>
-                                            <div class="mt-2">
-                                                <p class="mb-1">
-                                                    <strong>Offered Price:</strong> 
-                                                    <span class="text-primary fw-bold">$${negotiation.offeredPrice.toFixed(2)}</span>
-                                                </p>
-                                                ${negotiation.offerMessage ? `
-                                                    <p class="mb-0">
-                                                        <strong>Message:</strong> ${escapeHtml(negotiation.offerMessage)}
+                                                <div class="mt-2">
+                                                    <p class="mb-1">
+                                                        <strong>Offered Price:</strong> 
+                                                        <span class="text-primary fw-bold">$${negotiation.offeredPrice.toFixed(2)}</span>
                                                     </p>
+                                                    ${negotiation.offerMessage ? `
+                                                        <p class="mb-0">
+                                                            <strong>Message:</strong> ${escapeHtml(negotiation.offerMessage)}
+                                                        </p>
+                                                    ` : ''}
+                                                </div>
+                                                ${negotiation.offerStatus === 'Pending' && negotiation.offeredBy === 'Admin' && submission.status === 'Pending Review' ? `
+                                                    ${isLatestPending ? `
+                                                        <div class="mt-3">
+                                                            <button class="btn btn-sm btn-success me-2" 
+                                                                    onclick="handleNegotiationAction(${submission.submissionId}, ${negotiation.negotiationId}, 'accept')">
+                                                                Accept Offer
+                                                            </button>
+                                                            <button class="btn btn-sm btn-danger me-2" 
+                                                                    onclick="handleNegotiationAction(${submission.submissionId}, ${negotiation.negotiationId}, 'reject')">
+                                                                Reject Offer
+                                                            </button>
+                                                            <button class="btn btn-sm btn-primary" 
+                                                                    onclick="showCounterOfferForm(${submission.submissionId}, ${negotiation.negotiationId})">
+                                                                Counter-Offer
+                                                            </button>
+                                                        </div>
+                                                    ` : `
+                                                        <div class="mt-3">
+                                                            <span class="badge bg-secondary">This offer has been superseded by a newer offer</span>
+                                                        </div>
+                                                    `}
                                                 ` : ''}
                                             </div>
-                                            ${negotiation.offerStatus === 'Pending' && negotiation.offeredBy === 'Admin' && submission.status === 'Pending Review' ? `
-                                                <div class="mt-3">
-                                                    <button class="btn btn-sm btn-success me-2" 
-                                                            onclick="handleNegotiationAction(${submission.submissionId}, ${negotiation.negotiationId}, 'accept')">
-                                                        Accept Offer
-                                                    </button>
-                                                    <button class="btn btn-sm btn-danger me-2" 
-                                                            onclick="handleNegotiationAction(${submission.submissionId}, ${negotiation.negotiationId}, 'reject')">
-                                                        Reject Offer
-                                                    </button>
-                                                    <button class="btn btn-sm btn-primary" 
-                                                            onclick="showCounterOfferForm(${submission.submissionId}, ${negotiation.negotiationId})">
-                                                        Counter-Offer
-                                                    </button>
-                                                </div>
-                                            ` : ''}
                                         </div>
-                                    </div>
-                                `;
-                            }).join('')}
+                                    `;
+                                }).join('');
+                            })()}
                         </div>
                     ` : `
                         <div class="alert alert-info">

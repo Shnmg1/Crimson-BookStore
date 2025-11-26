@@ -281,7 +281,7 @@ public class SellSubmissionService : ISellSubmissionService
 
             // Verify negotiation exists and is pending
             var negotiationQuery = @"
-                SELECT NegotiationID, OfferStatus, OfferedPrice
+                SELECT NegotiationID, OfferStatus, OfferedPrice, OfferedBy
                 FROM PriceNegotiation
                 WHERE NegotiationID = @NegotiationID AND SubmissionID = @SubmissionID";
 
@@ -300,9 +300,44 @@ public class SellSubmissionService : ISellSubmissionService
             }
 
             var offerStatus = negotiationResult.Rows[0]["OfferStatus"].ToString() ?? string.Empty;
+            var offeredBy = negotiationResult.Rows[0]["OfferedBy"].ToString() ?? string.Empty;
+            
             if (offerStatus != "Pending")
             {
                 throw new InvalidOperationException("Negotiation is not in Pending status");
+            }
+            
+            // Customer can only accept Admin offers
+            if (offeredBy != "Admin")
+            {
+                throw new InvalidOperationException("You can only accept offers from Admin");
+            }
+
+            // Check if this is the LATEST pending admin offer
+            var latestPendingQuery = @"
+                SELECT NegotiationID
+                FROM PriceNegotiation
+                WHERE SubmissionID = @SubmissionID
+                  AND OfferedBy = 'Admin'
+                  AND OfferStatus = 'Pending'
+                ORDER BY RoundNumber DESC
+                LIMIT 1";
+
+            var latestPendingResult = await _databaseService.ExecuteQueryAsync(
+                latestPendingQuery,
+                new Dictionary<string, object> { { "@SubmissionID", submissionId } }
+            );
+
+            if (latestPendingResult.Rows.Count == 0)
+            {
+                throw new InvalidOperationException("No pending admin offer found");
+            }
+
+            var latestNegotiationId = Convert.ToInt32(latestPendingResult.Rows[0]["NegotiationID"]);
+
+            if (request.NegotiationId.Value != latestNegotiationId)
+            {
+                throw new InvalidOperationException("You can only accept the latest admin offer. Please refresh and accept the most recent offer.");
             }
 
             // Start transaction for accept
@@ -356,7 +391,7 @@ public class SellSubmissionService : ISellSubmissionService
 
             // Verify negotiation exists
             var negotiationQuery = @"
-                SELECT NegotiationID, OfferStatus
+                SELECT NegotiationID, OfferStatus, OfferedBy
                 FROM PriceNegotiation
                 WHERE NegotiationID = @NegotiationID AND SubmissionID = @SubmissionID";
 
@@ -373,6 +408,34 @@ public class SellSubmissionService : ISellSubmissionService
             {
                 throw new KeyNotFoundException("Negotiation not found");
             }
+            
+            var offeredBy = negotiationResult.Rows[0]["OfferedBy"].ToString() ?? string.Empty;
+            
+            // Customer can only reject Admin offers
+            if (offeredBy != "Admin")
+            {
+                throw new InvalidOperationException("You can only reject offers from Admin");
+            }
+
+            // Check if there are other pending admin offers
+            var otherPendingQuery = @"
+                SELECT COUNT(*) as pending_count
+                FROM PriceNegotiation
+                WHERE SubmissionID = @SubmissionID
+                  AND OfferedBy = 'Admin'
+                  AND OfferStatus = 'Pending'
+                  AND NegotiationID != @NegotiationID";
+
+            var otherPendingResult = await _databaseService.ExecuteQueryAsync(
+                otherPendingQuery,
+                new Dictionary<string, object> 
+                { 
+                    { "@SubmissionID", submissionId },
+                    { "@NegotiationID", request.NegotiationId.Value }
+                }
+            );
+
+            var otherPendingCount = Convert.ToInt32(otherPendingResult.Rows[0]["pending_count"]);
 
             // Start transaction for reject
             await using var connection = new MySqlConnection(_connectionString);
@@ -391,15 +454,18 @@ public class SellSubmissionService : ISellSubmissionService
                 updateNegotiationCmd.Parameters.AddWithValue("@NegotiationID", request.NegotiationId.Value);
                 await updateNegotiationCmd.ExecuteNonQueryAsync();
 
-                // Update submission status to Rejected
-                var updateSubmissionQuery = @"
-                    UPDATE SellSubmission
-                    SET Status = 'Rejected'
-                    WHERE SubmissionID = @SubmissionID";
+                // Only reject submission if this was the only pending offer
+                if (otherPendingCount == 0)
+                {
+                    var updateSubmissionQuery = @"
+                        UPDATE SellSubmission
+                        SET Status = 'Rejected'
+                        WHERE SubmissionID = @SubmissionID";
 
-                await using var updateSubmissionCmd = new MySqlCommand(updateSubmissionQuery, connection, transaction);
-                updateSubmissionCmd.Parameters.AddWithValue("@SubmissionID", submissionId);
-                await updateSubmissionCmd.ExecuteNonQueryAsync();
+                    await using var updateSubmissionCmd = new MySqlCommand(updateSubmissionQuery, connection, transaction);
+                    updateSubmissionCmd.Parameters.AddWithValue("@SubmissionID", submissionId);
+                    await updateSubmissionCmd.ExecuteNonQueryAsync();
+                }
 
                 await transaction.CommitAsync();
 
@@ -407,7 +473,9 @@ public class SellSubmissionService : ISellSubmissionService
                 {
                     NegotiationId = request.NegotiationId.Value,
                     OfferStatus = "Rejected",
-                    Message = "Price rejected."
+                    Message = otherPendingCount > 0 
+                        ? "Offer rejected. Other offers may still be pending." 
+                        : "Offer rejected. Submission has been rejected."
                 };
             }
             catch
@@ -421,6 +489,36 @@ public class SellSubmissionService : ISellSubmissionService
             if (!request.OfferedPrice.HasValue || request.OfferedPrice.Value <= 0)
             {
                 throw new ArgumentException("OfferedPrice is required and must be greater than 0 for counter action");
+            }
+
+            // Check if there's a pending negotiation from Admin that customer can counter
+            var lastNegotiationQuery = @"
+                SELECT OfferedBy, OfferStatus
+                FROM PriceNegotiation
+                WHERE SubmissionID = @SubmissionID
+                ORDER BY RoundNumber DESC
+                LIMIT 1";
+
+            var lastNegotiationResult = await _databaseService.ExecuteQueryAsync(
+                lastNegotiationQuery,
+                new Dictionary<string, object> { { "@SubmissionID", submissionId } }
+            );
+
+            if (lastNegotiationResult.Rows.Count > 0)
+            {
+                var lastOfferedBy = lastNegotiationResult.Rows[0]["OfferedBy"].ToString() ?? string.Empty;
+                var lastOfferStatus = lastNegotiationResult.Rows[0]["OfferStatus"].ToString() ?? string.Empty;
+                
+                // Customer can only counter Admin offers
+                if (lastOfferedBy != "Admin" || lastOfferStatus != "Pending")
+                {
+                    throw new InvalidOperationException("You can only counter pending offers from Admin");
+                }
+            }
+            else
+            {
+                // No negotiations yet - customer can't counter without an admin offer first
+                throw new InvalidOperationException("No admin offer to counter. Please wait for admin to make an offer.");
             }
 
             // Get next round number
@@ -531,6 +629,91 @@ public class SellSubmissionService : ISellSubmissionService
         return submissions;
     }
 
+    public async Task<AdminSellSubmissionResponse?> GetAdminSubmissionDetailsAsync(int submissionId)
+    {
+        // Get submission details
+        var submissionQuery = @"
+            SELECT 
+                ss.SubmissionID,
+                ss.UserID,
+                u.Username,
+                ss.ISBN,
+                ss.Title,
+                ss.Author,
+                ss.Edition,
+                ss.AskingPrice,
+                ss.PhysicalCondition,
+                ss.CourseMajor,
+                ss.Status,
+                ss.SubmissionDate
+            FROM SellSubmission ss
+            JOIN User u ON ss.UserID = u.UserID
+            WHERE ss.SubmissionID = @SubmissionID";
+
+        var submissionResult = await _databaseService.ExecuteQueryAsync(
+            submissionQuery,
+            new Dictionary<string, object> { { "@SubmissionID", submissionId } }
+        );
+
+        if (submissionResult.Rows.Count == 0)
+        {
+            return null;
+        }
+
+        var submissionRow = submissionResult.Rows[0];
+
+        // Get negotiation history
+        var negotiationsQuery = @"
+            SELECT 
+                NegotiationID,
+                OfferedBy,
+                OfferedPrice,
+                OfferDate,
+                OfferMessage,
+                OfferStatus,
+                RoundNumber
+            FROM PriceNegotiation
+            WHERE SubmissionID = @SubmissionID
+            ORDER BY RoundNumber ASC";
+
+        var negotiationsResult = await _databaseService.ExecuteQueryAsync(
+            negotiationsQuery,
+            new Dictionary<string, object> { { "@SubmissionID", submissionId } }
+        );
+
+        var negotiations = new List<PriceNegotiationResponse>();
+        foreach (DataRow row in negotiationsResult.Rows)
+        {
+            negotiations.Add(new PriceNegotiationResponse
+            {
+                NegotiationId = Convert.ToInt32(row["NegotiationID"]),
+                OfferedBy = row["OfferedBy"].ToString() ?? string.Empty,
+                OfferedPrice = Convert.ToDecimal(row["OfferedPrice"]),
+                OfferDate = Convert.ToDateTime(row["OfferDate"]),
+                OfferMessage = row["OfferMessage"] == DBNull.Value ? null : row["OfferMessage"].ToString(),
+                OfferStatus = row["OfferStatus"].ToString() ?? string.Empty,
+                RoundNumber = Convert.ToInt32(row["RoundNumber"])
+            });
+        }
+
+        return new AdminSellSubmissionResponse
+        {
+            SubmissionId = Convert.ToInt32(submissionRow["SubmissionID"]),
+            UserId = Convert.ToInt32(submissionRow["UserID"]),
+            Username = submissionRow["Username"].ToString() ?? string.Empty,
+            ISBN = submissionRow["ISBN"].ToString() ?? string.Empty,
+            Title = submissionRow["Title"].ToString() ?? string.Empty,
+            Author = submissionRow["Author"].ToString() ?? string.Empty,
+            Edition = submissionRow["Edition"].ToString() ?? string.Empty,
+            AskingPrice = Convert.ToDecimal(submissionRow["AskingPrice"]),
+            PhysicalCondition = submissionRow["PhysicalCondition"].ToString() ?? string.Empty,
+            CourseMajor = submissionRow["CourseMajor"] == DBNull.Value ? null : submissionRow["CourseMajor"].ToString(),
+            Status = submissionRow["Status"].ToString() ?? string.Empty,
+            SubmissionDate = Convert.ToDateTime(submissionRow["SubmissionDate"]),
+            Negotiations = negotiations
+        };
+    }
+
     public async Task<NegotiateResponse> AdminNegotiateAsync(int submissionId, int adminUserId, AdminNegotiateRequest request)
     {
         if (request.OfferedPrice <= 0)
@@ -560,6 +743,49 @@ public class SellSubmissionService : ISellSubmissionService
             throw new InvalidOperationException("Submission is not in Pending Review status");
         }
 
+        // Check if there's a pending negotiation from User (customer counter-offer)
+        // Admin can only negotiate if there's no pending admin offer or if the last pending offer is from User
+        var lastNegotiationQuery = @"
+            SELECT OfferedBy, OfferStatus
+            FROM PriceNegotiation
+            WHERE SubmissionID = @SubmissionID
+            ORDER BY RoundNumber DESC
+            LIMIT 1";
+
+        var lastNegotiationResult = await _databaseService.ExecuteQueryAsync(
+            lastNegotiationQuery,
+            new Dictionary<string, object> { { "@SubmissionID", submissionId } }
+        );
+
+        if (lastNegotiationResult.Rows.Count > 0)
+        {
+            var lastOfferedBy = lastNegotiationResult.Rows[0]["OfferedBy"].ToString() ?? string.Empty;
+            var lastOfferStatus = lastNegotiationResult.Rows[0]["OfferStatus"].ToString() ?? string.Empty;
+            
+            // If last offer is from Admin and still pending, admin can't make another offer
+            if (lastOfferedBy == "Admin" && lastOfferStatus == "Pending")
+            {
+                throw new InvalidOperationException("You already have a pending offer. Wait for customer response.");
+            }
+            
+            // If last offer was accepted or rejected, negotiation is closed
+            if (lastOfferStatus == "Accepted" || lastOfferStatus == "Rejected")
+            {
+                throw new InvalidOperationException("Negotiation has been closed. Cannot make new offers.");
+            }
+        }
+
+        // Auto-reject any previous pending admin offers (superseded by new offer)
+        var rejectOldOffersQuery = @"
+            UPDATE PriceNegotiation
+            SET OfferStatus = 'Rejected'
+            WHERE SubmissionID = @SubmissionID
+              AND OfferedBy = 'Admin'
+              AND OfferStatus = 'Pending'";
+
+        await _databaseService.ExecuteNonQueryAsync(rejectOldOffersQuery,
+            new Dictionary<string, object> { { "@SubmissionID", submissionId } });
+
         // Get next round number
         var roundNumberQuery = @"
             SELECT COALESCE(MAX(RoundNumber), 0) + 1 as next_round
@@ -586,7 +812,8 @@ public class SellSubmissionService : ISellSubmissionService
         var parameters = new Dictionary<string, object>
         {
             { "@SubmissionID", submissionId },
-            { "@OfferedPrice", request.OfferedPrice }
+            { "@OfferedPrice", request.OfferedPrice },
+            { "@RoundNumber", roundNumber }
         };
 
         if (!string.IsNullOrWhiteSpace(request.OfferMessage))
@@ -621,7 +848,7 @@ public class SellSubmissionService : ISellSubmissionService
             throw new ArgumentException("SellingPrice must be greater than 0");
         }
 
-        // Verify submission exists and has accepted negotiation
+        // Get submission details
         var submissionQuery = @"
             SELECT 
                 ss.SubmissionID,
@@ -632,11 +859,9 @@ public class SellSubmissionService : ISellSubmissionService
                 ss.PhysicalCondition,
                 ss.CourseMajor,
                 ss.Status,
-                pn.OfferedPrice as accepted_price
+                ss.AskingPrice
             FROM SellSubmission ss
-            JOIN PriceNegotiation pn ON ss.SubmissionID = pn.SubmissionID
-            WHERE ss.SubmissionID = @SubmissionID
-              AND pn.OfferStatus = 'Accepted'";
+            WHERE ss.SubmissionID = @SubmissionID";
 
         var submissionResult = await _databaseService.ExecuteQueryAsync(
             submissionQuery,
@@ -645,22 +870,75 @@ public class SellSubmissionService : ISellSubmissionService
 
         if (submissionResult.Rows.Count == 0)
         {
-            throw new KeyNotFoundException("Submission not found or no accepted negotiation exists");
+            throw new KeyNotFoundException("Submission not found");
         }
 
         var submissionRow = submissionResult.Rows[0];
         var submissionStatus = submissionRow["Status"].ToString() ?? string.Empty;
 
-        if (submissionStatus != "Approved")
+        // Check if a book already exists for this submission (already processed)
+        var existingBookQuery = @"
+            SELECT COUNT(*) as book_count
+            FROM Book
+            WHERE SubmissionID = @SubmissionID";
+
+        var existingBookResult = await _databaseService.ExecuteQueryAsync(
+            existingBookQuery,
+            new Dictionary<string, object> { { "@SubmissionID", submissionId } }
+        );
+
+        var bookCount = Convert.ToInt32(existingBookResult.Rows[0]["book_count"]);
+        if (bookCount > 0)
         {
-            throw new InvalidOperationException("Submission must be in Approved status (customer must accept negotiation first)");
+            throw new InvalidOperationException("This submission has already been approved and a book has been created. Cannot approve again.");
         }
 
-        var acquisitionCost = Convert.ToDecimal(submissionRow["accepted_price"]);
+        // Check if submission is in correct status
+        if (submissionStatus != "Pending Review" && submissionStatus != "Approved")
+        {
+            throw new InvalidOperationException($"Submission is in {submissionStatus} status and cannot be approved");
+        }
+
+        decimal acquisitionCost;
+        
+        // Check if there's an accepted negotiation
+        var negotiationQuery = @"
+            SELECT OfferedPrice
+            FROM PriceNegotiation
+            WHERE SubmissionID = @SubmissionID
+              AND OfferStatus = 'Accepted'
+            ORDER BY RoundNumber DESC
+            LIMIT 1";
+
+        var negotiationResult = await _databaseService.ExecuteQueryAsync(
+            negotiationQuery,
+            new Dictionary<string, object> { { "@SubmissionID", submissionId } }
+        );
+
+        if (negotiationResult.Rows.Count > 0)
+        {
+            // Use accepted negotiation price as acquisition cost
+            acquisitionCost = Convert.ToDecimal(negotiationResult.Rows[0]["OfferedPrice"]);
+            
+            if (submissionStatus != "Approved")
+            {
+                throw new InvalidOperationException("Submission must be in Approved status (customer must accept negotiation first)");
+            }
+        }
+        else
+        {
+            // No negotiations - use asking price as acquisition cost (initial approval)
+            acquisitionCost = Convert.ToDecimal(submissionRow["AskingPrice"]);
+            
+            if (submissionStatus != "Pending Review")
+            {
+                throw new InvalidOperationException("Submission must be in Pending Review status for initial approval");
+            }
+        }
 
         if (request.SellingPrice <= acquisitionCost)
         {
-            throw new ArgumentException("SellingPrice must be greater than AcquisitionCost");
+            throw new ArgumentException($"SellingPrice (${request.SellingPrice}) must be greater than AcquisitionCost (${acquisitionCost})");
         }
 
         // Start transaction for approval (update submission, create book)
@@ -670,10 +948,10 @@ public class SellSubmissionService : ISellSubmissionService
 
         try
         {
-            // Update submission with AdminUserID
+            // Update submission status to Completed (book has been created) and set AdminUserID
             var updateSubmissionQuery = @"
                 UPDATE SellSubmission
-                SET AdminUserID = @AdminUserID
+                SET Status = 'Completed', AdminUserID = @AdminUserID
                 WHERE SubmissionID = @SubmissionID";
 
             await using var updateSubmissionCmd = new MySqlCommand(updateSubmissionQuery, connection, transaction);
@@ -727,7 +1005,7 @@ public class SellSubmissionService : ISellSubmissionService
             {
                 SubmissionId = submissionId,
                 BookId = bookId,
-                Status = "Approved"
+                Status = "Completed"
             };
         }
         catch

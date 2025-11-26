@@ -47,3 +47,10 @@ npm-debug.log
 .DS_Store
 Thumbs.db
 
+# Configuration files with sensitive data (local overrides)
+api/appsettings.Development.json
+api/appsettings.*.local.json
+
+# Note: appsettings.json is tracked with placeholder password
+# Each developer should update it with their own MySQL password
+

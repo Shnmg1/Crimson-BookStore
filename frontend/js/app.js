@@ -708,24 +708,73 @@ async function loadAdminSubmissions() {
             }
             
             let html = '<div class="row">';
-            response.data.forEach(submission => {
+            
+            // Fetch details for each submission to get negotiations
+            const submissionsWithDetails = await Promise.all(
+                response.data.map(async (submission) => {
+                    try {
+                        const detailsResponse = await window.getAdminSubmissionDetails(submission.submissionId);
+                        if (detailsResponse.success && detailsResponse.data) {
+                            return {
+                                ...submission,
+                                negotiations: detailsResponse.data.negotiations || []
+                            };
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching details for submission ${submission.submissionId}:`, error);
+                    }
+                    return { ...submission, negotiations: [] };
+                })
+            );
+            
+            submissionsWithDetails.forEach(submission => {
+                // Get latest negotiation price if available
+                const latestNegotiation = submission.negotiations && submission.negotiations.length > 0
+                    ? submission.negotiations[submission.negotiations.length - 1]
+                    : null;
+                
+                // Check if there's an accepted negotiation
+                const hasAcceptedNegotiation = submission.negotiations && submission.negotiations.some(n => n.offerStatus === 'Accepted');
+                
+                const currentPrice = latestNegotiation 
+                    ? latestNegotiation.offeredPrice 
+                    : submission.askingPrice;
+                
+                const priceLabel = latestNegotiation 
+                    ? (latestNegotiation.offeredBy === 'Admin' ? 'Your Latest Offer' : 'Customer Counter-Offer')
+                    : 'Asking Price';
+                
+                // Show approve button if: Pending Review (initial approval) OR Approved with accepted negotiation (customer accepted offer)
+                // BUT NOT if status is Completed (already processed)
+                const canApprove = (submission.status === 'Pending Review' || 
+                    (submission.status === 'Approved' && hasAcceptedNegotiation)) &&
+                    submission.status !== 'Completed';
+                
                 html += `
                     <div class="col-md-6 mb-3">
                         <div class="card">
                             <div class="card-body">
-                                <h5 class="card-title">${submission.title}</h5>
+                                <h5 class="card-title">${escapeHtml(submission.title)}</h5>
                                 <p class="card-text">
-                                    <strong>User:</strong> ${submission.username}<br>
-                                    <strong>ISBN:</strong> ${submission.isbn}<br>
-                                    <strong>Asking Price:</strong> $${submission.askingPrice.toFixed(2)}<br>
-                                    <strong>Status:</strong> <span class="badge bg-${getStatusBadgeColor(submission.status)}">${submission.status}</span><br>
+                                    <strong>User:</strong> ${escapeHtml(submission.username)}<br>
+                                    <strong>ISBN:</strong> ${escapeHtml(submission.isbn)}<br>
+                                    <strong>${priceLabel}:</strong> <span class="text-primary fw-bold">$${currentPrice.toFixed(2)}</span><br>
+                                    ${latestNegotiation ? `<small class="text-muted">Original asking: $${submission.askingPrice.toFixed(2)}</small><br>` : ''}
+                                    <strong>Status:</strong> <span class="badge bg-${getStatusBadgeColor(submission.status)}">${escapeHtml(submission.status)}</span><br>
                                     <strong>Submitted:</strong> ${new Date(submission.submissionDate).toLocaleDateString()}
                                 </p>
-                                ${submission.status === 'Pending Review' ? `
-                                    <button class="btn btn-sm btn-primary" onclick="showNegotiateModal(${submission.submissionId})">Negotiate</button>
-                                    <button class="btn btn-sm btn-success" onclick="showApproveModal(${submission.submissionId})">Approve</button>
-                                    <button class="btn btn-sm btn-danger" onclick="handleRejectSubmission(${submission.submissionId})">Reject</button>
-                                ` : ''}
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button class="btn btn-sm btn-info" onclick="showAdminSubmissionDetails(${submission.submissionId})">
+                                        View Details
+                                    </button>
+                                    ${submission.status === 'Pending Review' ? `
+                                        <button class="btn btn-sm btn-primary" onclick="showNegotiateModal(${submission.submissionId})">Negotiate</button>
+                                        <button class="btn btn-sm btn-success" onclick="showApproveModal(${submission.submissionId})">Approve</button>
+                                        <button class="btn btn-sm btn-danger" onclick="handleRejectSubmission(${submission.submissionId})">Reject</button>
+                                    ` : canApprove ? `
+                                        <button class="btn btn-sm btn-success" onclick="showApproveModal(${submission.submissionId})">Approve</button>
+                                    ` : ''}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -824,6 +873,14 @@ async function loadAdminUsers() {
     }
 }
 
+// Helper function to escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Helper function for status badge colors
 function getStatusBadgeColor(status) {
     const colors = {
@@ -833,7 +890,8 @@ function getStatusBadgeColor(status) {
         'Cancelled': 'danger',
         'Pending Review': 'warning',
         'Approved': 'success',
-        'Rejected': 'danger'
+        'Rejected': 'danger',
+        'Completed': 'success'
     };
     return colors[status] || 'secondary';
 }
@@ -924,6 +982,191 @@ function showNegotiateModal(submissionId) {
         .catch(error => {
             showAlert(error.message || 'Error submitting counter-offer', 'danger');
         });
+}
+
+async function showAdminSubmissionDetails(submissionId) {
+    try {
+        const response = await window.getAdminSubmissionDetails(submissionId);
+        
+        if (!response.success || !response.data) {
+            showAlert('Failed to load submission details', 'danger');
+            return;
+        }
+        
+        const submission = response.data;
+        const app = document.getElementById('app');
+        
+        app.innerHTML = `
+            <div class="container-fluid">
+                <div class="row mb-3">
+                    <div class="col">
+                        <button class="btn btn-secondary" onclick="showAdminSubmissionsPage()">
+                            ← Back to Submissions
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4 class="mb-0">Submission Details</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <table class="table table-borderless">
+                                    <tr>
+                                        <th>Title:</th>
+                                        <td>${escapeHtml(submission.title)}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Author:</th>
+                                        <td>${escapeHtml(submission.author)}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>ISBN:</th>
+                                        <td>${escapeHtml(submission.isbn)}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Edition:</th>
+                                        <td>${escapeHtml(submission.edition)}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Condition:</th>
+                                        <td>${escapeHtml(submission.physicalCondition)}</td>
+                                    </tr>
+                                    ${submission.courseMajor ? `
+                                    <tr>
+                                        <th>Course/Major:</th>
+                                        <td>${escapeHtml(submission.courseMajor)}</td>
+                                    </tr>
+                                    ` : ''}
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <table class="table table-borderless">
+                                    <tr>
+                                        <th>User:</th>
+                                        <td>${escapeHtml(submission.username)}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Asking Price:</th>
+                                        <td>$${submission.askingPrice.toFixed(2)}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Status:</th>
+                                        <td><span class="badge bg-${getStatusBadgeColor(submission.status)}">${escapeHtml(submission.status)}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <th>Submitted:</th>
+                                        <td>${new Date(submission.submissionDate).toLocaleString()}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Price Negotiation History</h5>
+                    </div>
+                    <div class="card-body">
+                        ${submission.negotiations && submission.negotiations.length > 0 ? `
+                            <div class="timeline">
+                                ${submission.negotiations.map((negotiation, index) => {
+                                    const offerDate = new Date(negotiation.offerDate);
+                                    const offerStatusBadgeClass = {
+                                        'Pending': 'bg-warning',
+                                        'Accepted': 'bg-success',
+                                        'Rejected': 'bg-danger'
+                                    }[negotiation.offerStatus] || 'bg-secondary';
+                                    
+                                    return `
+                                        <div class="card mb-3 ${negotiation.offerStatus === 'Pending' ? 'border-warning' : ''}">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                                    <div>
+                                                        <h6 class="mb-0">
+                                                            Round ${negotiation.roundNumber} - ${negotiation.offeredBy === 'Admin' ? 'Your Offer' : 'Customer Counter-Offer'}
+                                                        </h6>
+                                                        <small class="text-muted">${offerDate.toLocaleDateString()} ${offerDate.toLocaleTimeString()}</small>
+                                                    </div>
+                                                    <span class="badge ${offerStatusBadgeClass}">${escapeHtml(negotiation.offerStatus)}</span>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <p class="mb-1">
+                                                        <strong>Offered Price:</strong> 
+                                                        <span class="text-primary fw-bold">$${negotiation.offeredPrice.toFixed(2)}</span>
+                                                    </p>
+                                                    ${negotiation.offerMessage ? `
+                                                        <p class="mb-0"><strong>Message:</strong> ${escapeHtml(negotiation.offerMessage)}</p>
+                                                    ` : ''}
+                                                </div>
+                                                ${negotiation.offerStatus === 'Pending' && negotiation.offeredBy === 'User' && submission.status === 'Pending Review' ? `
+                                                    <div class="mt-3">
+                                                        <button class="btn btn-sm btn-primary" 
+                                                                onclick="showNegotiateModal(${submission.submissionId})">
+                                                            Counter-Offer
+                                                        </button>
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        ` : `
+                            <div class="alert alert-info">
+                                <p class="mb-0">No negotiations yet.</p>
+                            </div>
+                        `}
+                    </div>
+                </div>
+                
+                ${(() => {
+                    const hasAcceptedNegotiation = submission.negotiations && submission.negotiations.some(n => n.offerStatus === 'Accepted');
+                    const canApprove = (submission.status === 'Pending Review' || 
+                        (submission.status === 'Approved' && hasAcceptedNegotiation)) &&
+                        submission.status !== 'Completed';
+                    
+                    if (submission.status === 'Pending Review') {
+                        return `
+                        <div class="card mt-3">
+                            <div class="card-body">
+                                <h6>Actions</h6>
+                                <button class="btn btn-primary me-2" onclick="showNegotiateModal(${submission.submissionId})">Negotiate</button>
+                                <button class="btn btn-success me-2" onclick="showApproveModal(${submission.submissionId})">Approve</button>
+                                <button class="btn btn-danger" onclick="handleRejectSubmission(${submission.submissionId})">Reject</button>
+                            </div>
+                        </div>
+                        `;
+                    } else if (canApprove) {
+                        return `
+                        <div class="card mt-3">
+                            <div class="card-body">
+                                <h6>Actions</h6>
+                                <button class="btn btn-success me-2" onclick="showApproveModal(${submission.submissionId})">Approve</button>
+                            </div>
+                        </div>
+                        `;
+                    } else if (submission.status === 'Completed') {
+                        return `
+                        <div class="card mt-3">
+                            <div class="card-body">
+                                <div class="alert alert-success">
+                                    <strong>✓ Processed:</strong> This submission has been approved and the book has been added to inventory.
+                                </div>
+                            </div>
+                        </div>
+                        `;
+                    }
+                    return '';
+                })()}
+            </div>
+        `;
+    } catch (error) {
+        showAlert(error.message || 'Error loading submission details', 'danger');
+    }
 }
 
 function showAddBookModal() {
@@ -1039,6 +1282,7 @@ window.updateOrderStatus = updateOrderStatus;
 window.handleRejectSubmission = handleRejectSubmission;
 window.showApproveModal = showApproveModal;
 window.showNegotiateModal = showNegotiateModal;
+window.showAdminSubmissionDetails = showAdminSubmissionDetails;
 window.showAddBookModal = showAddBookModal;
 window.handleAddBook = handleAddBook;
 window.handleDeleteBook = handleDeleteBook;

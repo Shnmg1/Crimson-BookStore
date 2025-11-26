@@ -85,6 +85,72 @@ public class AdminSellSubmissionsController : ControllerBase
         }
     }
 
+    [HttpGet("{submissionId}")]
+    public async Task<IActionResult> GetAdminSubmissionDetails(int submissionId)
+    {
+        try
+        {
+            // Check authentication and admin access
+            var currentUser = AuthHelper.GetCurrentUser(Request, _sessionService);
+            if (currentUser == null)
+            {
+                return Unauthorized(new
+                {
+                    success = false,
+                    error = "Not authenticated",
+                    statusCode = 401
+                });
+            }
+
+            if (!IsAdmin(currentUser))
+            {
+                return StatusCode(403, new
+                {
+                    success = false,
+                    error = "Admin access required",
+                    statusCode = 403
+                });
+            }
+
+            if (submissionId <= 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Invalid submission ID",
+                    statusCode = 400
+                });
+            }
+
+            var submission = await _sellSubmissionService.GetAdminSubmissionDetailsAsync(submissionId);
+            
+            if (submission == null)
+            {
+                return NotFound(new
+                {
+                    success = false,
+                    error = "Submission not found",
+                    statusCode = 404
+                });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                data = submission
+            });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new
+            {
+                success = false,
+                error = "An error occurred while retrieving submission details",
+                statusCode = 500
+            });
+        }
+    }
+
     [HttpPost("{submissionId}/negotiate")]
     public async Task<IActionResult> AdminNegotiate(int submissionId, [FromBody] AdminNegotiateRequest? request)
     {

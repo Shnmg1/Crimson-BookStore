@@ -2,6 +2,69 @@
 
 A web-based point-of-sale system for buying and selling used textbooks and general reading materials.
 
+## 🚀 Quick Start (For Classmates)
+
+**Follow these steps to get the project running:**
+
+### 1. Database Setup
+- Make sure MySQL Server is installed and running
+- Create the database by running the SQL script:
+  ```bash
+  mysql -u root -p < CrimsonBookStore5.sql
+  ```
+  (Enter your MySQL root password when prompted)
+
+### 2. Configure Database Connection
+- Open `api/appsettings.json`
+- Update the connection string with **YOUR** MySQL password:
+  ```json
+  {
+    "ConnectionStrings": {
+      "DefaultConnection": "Server=localhost;Database=crimsonbookstore;User=root;Password=YOUR_PASSWORD_HERE;Port=3306;"
+    }
+  }
+  ```
+  ⚠️ **Important**: Replace `YOUR_PASSWORD_HERE` with your actual MySQL root password!
+
+### 3. Start the Backend API
+Open a terminal and run:
+```bash
+cd api
+dotnet restore
+dotnet run
+```
+The API will start on `http://localhost:5000` or `https://localhost:5001`
+
+### 4. Start the Frontend
+Open a **new terminal** (keep the backend running) and run:
+```bash
+cd frontend
+python -m http.server 8000
+```
+Or if you don't have Python, you can:
+- Use VS Code's Live Server extension
+- Or simply open `frontend/index.html` directly in your browser
+
+Then navigate to: `http://localhost:8000`
+
+### 5. Test It Works
+- You should see the Crimson BookStore homepage
+- Try registering a new account
+- The API should be running in the background (check the terminal for any errors)
+
+### ⚠️ Important Notes:
+- **Passwords**: This project uses **plain text passwords** for demo/educational purposes only. Do NOT use real passwords!
+- **Two Terminals**: You need BOTH the backend (API) and frontend running at the same time
+- **Database**: Make sure MySQL is running before starting the backend
+- **Port Conflicts**: If ports 5000/5001 or 8000 are in use, you may need to change them
+
+### Troubleshooting:
+- **"Connection refused"**: Make sure MySQL is running and the password in `appsettings.json` is correct
+- **"Cannot connect to API"**: Make sure the backend is running (check the terminal)
+- **CORS errors**: Make sure the frontend is accessing the API from the correct port
+
+---
+
 ## Project Overview
 
 CrimsonBookStore is a local business specializing in buying and selling used textbooks. This system provides a fully functional web application with front-end user experience and a well-structured back-end database to manage inventory, customer transactions, and administrative operations.
@@ -62,13 +125,17 @@ Crimson-BookStore/
    ```
 
 2. **Configure connection string** in `api/appsettings.json`:
+   - The file should already exist with a placeholder `YOUR_PASSWORD_HERE`
+   - Replace `YOUR_PASSWORD_HERE` with your actual MySQL root password
+   - Example:
    ```json
    {
      "ConnectionStrings": {
-       "DefaultConnection": "Server=localhost;Database=crimsonbookstore;User=root;Password=yourpassword;"
+       "DefaultConnection": "Server=localhost;Database=crimsonbookstore;User=root;Password=yourpassword;Port=3306;"
      }
    }
    ```
+   ⚠️ **Security Note**: Never commit your actual password to git! The repository uses a placeholder to prevent accidental password commits.
 
 ### Backend Setup
 

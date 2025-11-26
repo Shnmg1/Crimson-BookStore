@@ -55,6 +55,10 @@ async function rejectSubmission(submissionId, reason = null) {
     });
 }
 
+async function getAdminSubmissionDetails(submissionId) {
+    return apiCall(`/admin/sell-submissions/${submissionId}`);
+}
+
 // Admin Orders
 async function getAdminOrders(status = null, page = 1, pageSize = 20) {
     let url = `/admin/orders?page=${page}&pageSize=${pageSize}`;
@@ -86,6 +90,7 @@ window.createBook = createBook;
 window.updateBook = updateBook;
 window.deleteBook = deleteBook;
 window.getAdminSubmissions = getAdminSubmissions;
+window.getAdminSubmissionDetails = getAdminSubmissionDetails;
 window.adminNegotiate = adminNegotiate;
 window.approveSubmission = approveSubmission;
 window.rejectSubmission = rejectSubmission;
