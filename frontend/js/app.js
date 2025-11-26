@@ -46,6 +46,13 @@ function setupNavigation() {
         showCartPage();
     });
     
+    document.getElementById('navOrders')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof showOrderHistoryPage === 'function') {
+            showOrderHistoryPage();
+        }
+    });
+    
     document.getElementById('navLogin')?.addEventListener('click', (e) => {
         e.preventDefault();
         showLoginPage();
@@ -66,18 +73,21 @@ function updateNavigation() {
     const navLoginItem = document.getElementById('navLoginItem');
     const navUserItem = document.getElementById('navUserItem');
     const navCartItem = document.getElementById('navCartItem');
+    const navOrdersItem = document.getElementById('navOrdersItem');
     
     if (isAuth && user) {
         // User is logged in
         navLoginItem.style.display = 'none';
         navUserItem.style.display = 'block';
         navCartItem.style.display = 'block';
+        if (navOrdersItem) navOrdersItem.style.display = 'block';
         document.getElementById('navUserInfo').textContent = `Welcome, ${user.username}`;
     } else {
         // User is not logged in
         navLoginItem.style.display = 'block';
         navUserItem.style.display = 'none';
         navCartItem.style.display = 'none';
+        if (navOrdersItem) navOrdersItem.style.display = 'none';
     }
 }
 

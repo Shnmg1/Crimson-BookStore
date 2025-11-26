@@ -215,9 +215,13 @@ async function handleClearCart() {
     }
 }
 
-// Handle checkout (placeholder for Phase 4)
+// Handle checkout - show checkout page
 function handleCheckout() {
-    showAlert('Checkout functionality will be implemented in Phase 4 (Order Processing)', 'info');
+    if (typeof showCheckoutPage === 'function') {
+        showCheckoutPage();
+    } else {
+        showAlert('Checkout page is loading...', 'info');
+    }
 }
 
 // Update cart badge count in navigation
