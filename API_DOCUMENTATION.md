@@ -500,6 +500,12 @@ or for one-time payment:
 }
 ```
 
+**Field Requirements:**
+- `paymentMethodId` (optional): ID of a saved payment method, or `null` for one-time payment
+  - If provided, must be a valid payment method ID that belongs to the current user
+  - If `null`, payment is processed as a one-time payment without saving the method
+  - See `/api/payment-methods` endpoints to manage saved payment methods
+
 **Response:**
 ```json
 {
@@ -521,10 +527,16 @@ or for one-time payment:
 ```
 
 **Status Codes:**
-- `201 Created` - Order created
+- `201 Created` - Order created successfully
 - `400 Bad Request` - Cart empty or items no longer available
 - `401 Unauthorized` - Not logged in
+- `404 Not Found` - Payment method ID not found (if provided)
 - `500 Internal Server Error` - Server error
+
+**Notes:**
+- The shopping cart is automatically cleared after successful order creation
+- Payment is automatically processed and recorded in the Payment table
+- If a `paymentMethodId` is provided, it must belong to the authenticated user
 
 ---
 
@@ -959,6 +971,11 @@ Get all orders (Admin Only).
 #### GET `/api/payment-methods`
 Get current user's saved payment methods.
 
+**Headers:**
+```
+Authorization: Bearer {token}
+```
+
 **Response:**
 ```json
 {
@@ -969,21 +986,41 @@ Get current user's saved payment methods.
       "cardType": "Visa",
       "lastFourDigits": "1234",
       "expirationDate": "12/2025",
-      "isDefault": true
+      "isDefault": true,
+      "createdDate": "2024-01-15T10:30:00Z",
+      "displayName": "Visa ending in 1234"
     }
   ]
 }
 ```
+
+**Field Descriptions:**
+- `paymentMethodId`: Unique identifier for the payment method
+- `cardType`: Type of card (Visa, MasterCard, American Express, Discover, etc.)
+- `lastFourDigits`: Last 4 digits of the card number (for display only)
+- `expirationDate`: Card expiration date in MM/YYYY format
+- `isDefault`: Whether this is the user's default payment method
+- `createdDate`: When the payment method was added
+- `displayName`: Formatted display string (e.g., "Visa ending in 1234")
 
 **Status Codes:**
 - `200 OK` - Success
 - `401 Unauthorized` - Not logged in
 - `500 Internal Server Error` - Server error
 
+**Notes:**
+- Payment methods are ordered by default status first (defaults first), then by creation date (newest first)
+- Only the authenticated user's payment methods are returned
+
 ---
 
 #### POST `/api/payment-methods`
 Add a new payment method.
+
+**Headers:**
+```
+Authorization: Bearer {token}
+```
 
 **Request Body:**
 ```json
@@ -994,6 +1031,12 @@ Add a new payment method.
   "isDefault": false
 }
 ```
+
+**Field Requirements:**
+- `cardType` (required): Card type (Visa, MasterCard, American Express, Discover, etc.)
+- `lastFourDigits` (required): Exactly 4 digits (numbers only)
+- `expirationDate` (required): Format MM/YYYY (e.g., "12/2025")
+- `isDefault` (optional): Boolean, defaults to false. If true, automatically unsets all other defaults for the user
 
 **Response:**
 ```json
@@ -1006,22 +1049,78 @@ Add a new payment method.
 ```
 
 **Status Codes:**
-- `201 Created` - Payment method added
-- `400 Bad Request` - Validation error
+- `201 Created` - Payment method added successfully
+- `400 Bad Request` - Validation error:
+  - Missing required fields
+  - Invalid expiration date format
+  - Last four digits not exactly 4 digits
+  - Invalid card type
 - `401 Unauthorized` - Not logged in
 - `500 Internal Server Error` - Server error
+
+**Business Rules:**
+- If `isDefault` is set to `true`, all other payment methods for the user are automatically set to `false`
+- Only one payment method can be default per user
+- Expiration date must be in MM/YYYY format (month 01-12, year 2000-2099)
+- Last four digits must be exactly 4 numeric digits
+
+---
+
+#### PUT `/api/payment-methods/{paymentMethodId}/default`
+Set a payment method as the default.
+
+**Headers:**
+```
+Authorization: Bearer {token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Default payment method updated successfully"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Default payment method updated
+- `401 Unauthorized` - Not logged in
+- `404 Not Found` - Payment method not found or does not belong to user
+- `500 Internal Server Error` - Server error
+
+**Business Rules:**
+- Setting a payment method as default automatically unsets all other defaults for that user
+- Only the owner of the payment method can set it as default
 
 ---
 
 #### DELETE `/api/payment-methods/{paymentMethodId}`
 Delete a payment method.
 
+**Headers:**
+```
+Authorization: Bearer {token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Payment method deleted successfully"
+}
+```
+
 **Status Codes:**
-- `200 OK` - Payment method deleted
+- `200 OK` - Payment method deleted successfully
+- `400 Bad Request` - Payment method has been used in orders (cannot delete)
 - `401 Unauthorized` - Not logged in
-- `403 Forbidden` - Not your payment method
-- `404 Not Found` - Payment method not found
+- `404 Not Found` - Payment method not found or does not belong to user
 - `500 Internal Server Error` - Server error
+
+**Business Rules:**
+- Cannot delete a payment method that has been used in any Payment records
+- Only the owner of the payment method can delete it
+- If the deleted payment method was the default, no new default is automatically set
 
 ---
 
@@ -1097,9 +1196,15 @@ Critical operations should use database transactions:
 - Order status transitions must be validated
 
 ### Payment Handling
-- `PaymentMethodID` can be NULL for one-time payments
+- `PaymentMethodID` can be NULL for one-time payments (when user doesn't use a saved payment method)
+- `PaymentMethodID` can reference a saved payment method from the `PaymentMethod` table
+- Users can save payment methods via `/api/payment-methods` endpoints
+- When creating an order, users can specify a `paymentMethodId` or use `null` for one-time payment
 - `Payment.Amount` should match `PurchaseOrder.TotalAmount`
-- Payment status defaults to 'Completed' (simulated payment)
+- Payment status defaults to 'Completed' (simulated payment for demo purposes)
+- Saved payment methods store only safe data (last 4 digits, card type) - no full card numbers
+- Only one payment method can be set as default per user
+- Payment methods used in orders cannot be deleted (to maintain order history integrity)
 
 ### Stock Calculation
 - Stock is calculated dynamically: `COUNT(*) WHERE ISBN = ? AND Edition = ? AND Status = 'Available'`

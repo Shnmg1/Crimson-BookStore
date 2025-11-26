@@ -145,7 +145,9 @@ async function showCheckoutPage() {
                                     <select class="form-select" id="savedPaymentMethodSelect">
                                         <option value="">Loading...</option>
                                     </select>
-                                    <small class="text-muted">No saved payment methods available. Payment methods feature will be implemented in Phase 7.</small>
+                                    <small class="text-muted mt-2 d-block">
+                                        <a href="#" onclick="showPaymentMethodsPage(); return false;">Manage payment methods</a>
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -170,13 +172,21 @@ async function showCheckoutPage() {
             </div>
         `;
 
+        // Load payment methods for dropdown
+        if (typeof loadPaymentMethodsForCheckout === 'function') {
+            await loadPaymentMethodsForCheckout();
+        }
+        
         // Setup payment method radio button handlers
         document.querySelectorAll('input[name="paymentMethod"]').forEach(radio => {
             radio.addEventListener('change', function() {
                 const savedMethodsDiv = document.getElementById('savedPaymentMethods');
                 if (this.value === 'saved') {
                     savedMethodsDiv.style.display = 'block';
-                    // TODO: Load saved payment methods (Phase 7)
+                    // Reload payment methods in case they were updated
+                    if (typeof loadPaymentMethodsForCheckout === 'function') {
+                        loadPaymentMethodsForCheckout();
+                    }
                 } else {
                     savedMethodsDiv.style.display = 'none';
                 }

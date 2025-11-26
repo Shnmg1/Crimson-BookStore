@@ -65,6 +65,13 @@ function setupNavigation() {
         }
     });
     
+    document.getElementById('navPaymentMethods')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof showPaymentMethodsPage === 'function') {
+            showPaymentMethodsPage();
+        }
+    });
+    
     document.getElementById('navLogin')?.addEventListener('click', (e) => {
         e.preventDefault();
         showLoginPage();
@@ -113,6 +120,7 @@ function updateNavigation() {
     const navCartItem = document.getElementById('navCartItem');
     const navOrdersItem = document.getElementById('navOrdersItem');
     const navSellItem = document.getElementById('navSellItem');
+    const navPaymentMethodsItem = document.getElementById('navPaymentMethodsItem');
     const navAdminItem = document.getElementById('navAdminItem');
     
     if (isAuth && user) {
@@ -133,6 +141,7 @@ function updateNavigation() {
             navCartItem.style.display = 'block';
             if (navOrdersItem) navOrdersItem.style.display = 'block';
             if (navSellItem) navSellItem.style.display = 'block';
+            if (navPaymentMethodsItem) navPaymentMethodsItem.style.display = 'block';
         }
     } else {
         // User is not logged in
@@ -141,6 +150,7 @@ function updateNavigation() {
         navCartItem.style.display = 'none';
         if (navOrdersItem) navOrdersItem.style.display = 'none';
         if (navSellItem) navSellItem.style.display = 'none';
+        if (navPaymentMethodsItem) navPaymentMethodsItem.style.display = 'none';
         if (navAdminItem) navAdminItem.style.display = 'none';
     }
 }
