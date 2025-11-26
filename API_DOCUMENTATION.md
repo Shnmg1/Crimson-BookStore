@@ -188,12 +188,12 @@ Authorization: Bearer {token}
 ### Books
 
 #### GET `/api/books`
-Get list of all available books with stock counts.
+Get list of all available books with stock counts. Books are grouped by ISBN and Edition.
 
 **Query Parameters:**
-- `search` (optional) - Search by title, author, ISBN, or course/major
-- `isbn` (optional) - Filter by ISBN
-- `courseMajor` (optional) - Filter by course/major
+- `search` (optional) - Search by title, author, ISBN, or course/major (partial match)
+- `isbn` (optional) - Filter by exact ISBN
+- `courseMajor` (optional) - Filter by exact course/major
 - `page` (optional) - Page number (default: 1)
 - `pageSize` (optional) - Items per page (default: 20)
 
@@ -210,7 +210,8 @@ Get list of all available books with stock counts.
       "minPrice": 45.99,
       "maxPrice": 55.99,
       "availableCount": 3,
-      "availableConditions": ["New", "Good"]
+      "availableConditions": ["New", "Good"],
+      "courseMajor": "MIS 301"
     }
   ],
   "pagination": {
@@ -222,6 +223,14 @@ Get list of all available books with stock counts.
 }
 ```
 
+**Important Notes:**
+- Books are **grouped by ISBN + Edition** (multiple physical copies shown as one entry)
+- `availableCount` is calculated dynamically: `COUNT(*) WHERE ISBN=? AND Edition=? AND Status='Available'`
+- `minPrice` and `maxPrice` show the price range for all available copies
+- `availableConditions` lists all available conditions (New, Good, Fair)
+- Only books with `Status = 'Available'` are returned
+- Pagination is performed in-memory after grouping (simple implementation for school project)
+
 **Status Codes:**
 - `200 OK` - Success
 - `500 Internal Server Error` - Server error
@@ -229,7 +238,7 @@ Get list of all available books with stock counts.
 ---
 
 #### GET `/api/books/{bookId}`
-Get detailed information about a specific book.
+Get detailed information about a specific book by its BookID.
 
 **Response:**
 ```json
@@ -250,9 +259,48 @@ Get detailed information about a specific book.
 }
 ```
 
+**Important Notes:**
+- Returns a single book by its unique `BookID`
+- `availableCount` is calculated dynamically for all books with the same ISBN and Edition
+- Only returns books with `Status = 'Available'`
+- If book is not available or not found, returns 404
+
 **Status Codes:**
 - `200 OK` - Success
-- `404 Not Found` - Book not found
+- `404 Not Found` - Book not found or not available
+- `500 Internal Server Error` - Server error
+
+---
+
+#### GET `/api/books/search`
+Search books by title, author, ISBN, or course/major.
+
+**Query Parameters:**
+- `q` (required) - Search term
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "isbn": "978-0123456789",
+      "edition": "5th",
+      "title": "Database Systems",
+      "author": "John Smith",
+      "minPrice": 45.99,
+      "maxPrice": 55.99,
+      "availableCount": 3,
+      "availableConditions": ["New", "Good"],
+      "courseMajor": "MIS 301"
+    }
+  ]
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `400 Bad Request` - Search term is required
 - `500 Internal Server Error` - Server error
 
 ---
@@ -271,6 +319,12 @@ Get stock count for a specific ISBN and edition.
   }
 }
 ```
+
+**Status Codes:**
+- `200 OK` - Success (returns stockCount: 0 if not found)
+- `500 Internal Server Error` - Server error
+
+**Note:** Stock count is calculated dynamically by counting available books with matching ISBN and Edition.
 
 ---
 
@@ -1051,6 +1105,15 @@ Critical operations should use database transactions:
 - Stock is calculated dynamically: `COUNT(*) WHERE ISBN = ? AND Edition = ? AND Status = 'Available'`
 - Never store stock quantity in a field
 - Always check availability before operations
+- Books are grouped by ISBN+Edition in listings (multiple physical copies = one listing entry)
+- Each BookID represents one physical book
+
+### Book Listing
+- `GET /api/books` returns books grouped by ISBN+Edition
+- Price range (minPrice/maxPrice) shows variation across available copies
+- `availableConditions` lists all conditions available for that ISBN+Edition
+- Only books with `Status = 'Available'` are included in results
+- Pagination is simple in-memory pagination after grouping (for school project)
 
 ---
 

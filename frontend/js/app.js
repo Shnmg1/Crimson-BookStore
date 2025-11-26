@@ -107,7 +107,15 @@ function showBooksPage() {
                 <h2>Browse Books</h2>
             </div>
             <div class="col-md-4">
-                <input type="text" class="form-control" id="searchInput" placeholder="Search books...">
+                <div class="input-group">
+                    <input type="text" class="form-control" id="searchInput" placeholder="Search books..." onkeyup="handleSearchInput(event)">
+                    <button class="btn btn-outline-secondary" type="button" onclick="handleSearch()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
+                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">Clear</button>
+                </div>
             </div>
         </div>
         <div id="booksList" class="row">
@@ -117,8 +125,20 @@ function showBooksPage() {
         </div>
     `;
     
-    // TODO: Load books from API
+    // Load books from API
     loadBooks();
+    
+    // Setup search input enter key handler
+    setTimeout(() => {
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleSearch();
+                }
+            });
+        }
+    }, 100);
 }
 
 function showCartPage() {
@@ -284,9 +304,36 @@ async function handleRegister(e) {
     }
 }
 
-function loadBooks() {
-    // TODO: Implement book loading
-    console.log('Loading books...');
+// Handle search input (real-time filtering with debounce)
+let searchTimeout;
+function handleSearchInput(event) {
+    clearTimeout(searchTimeout);
+    const searchTerm = event.target.value.trim();
+    
+    // Debounce: wait 500ms after user stops typing
+    searchTimeout = setTimeout(() => {
+        if (searchTerm.length === 0 || searchTerm.length >= 2) {
+            loadBooks(searchTerm || null);
+        }
+    }, 500);
+}
+
+// Handle search button click
+function handleSearch() {
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        const searchTerm = searchInput.value.trim();
+        loadBooks(searchTerm || null);
+    }
+}
+
+// Clear search
+function clearSearch() {
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = '';
+        loadBooks();
+    }
 }
 
 function showAlert(message, type = 'info') {
@@ -312,4 +359,7 @@ window.showBooksPage = showBooksPage;
 window.showCartPage = showCartPage;
 window.showLoginPage = showLoginPage;
 window.showRegisterPage = showRegisterPage;
+window.handleSearchInput = handleSearchInput;
+window.handleSearch = handleSearch;
+window.clearSearch = clearSearch;
 
