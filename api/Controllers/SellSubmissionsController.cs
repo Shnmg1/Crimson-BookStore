@@ -6,20 +6,20 @@ using CrimsonBookStore.Helpers;
 namespace CrimsonBookStore.Controllers;
 
 [ApiController]
-[Route("api/orders")]
-public class OrdersController : ControllerBase
+[Route("api/sell-submissions")]
+public class SellSubmissionsController : ControllerBase
 {
-    private readonly IOrderService _orderService;
+    private readonly ISellSubmissionService _sellSubmissionService;
     private readonly ISessionService _sessionService;
 
-    public OrdersController(IOrderService orderService, ISessionService sessionService)
+    public SellSubmissionsController(ISellSubmissionService sellSubmissionService, ISessionService sessionService)
     {
-        _orderService = orderService;
+        _sellSubmissionService = sellSubmissionService;
         _sessionService = sessionService;
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest? request)
+    public async Task<IActionResult> CreateSellSubmission([FromBody] CreateSellSubmissionRequest? request)
     {
         try
         {
@@ -35,20 +35,27 @@ public class OrdersController : ControllerBase
                 });
             }
 
-            // PaymentMethodId is optional (nullable for one-time payments)
-            var paymentMethodId = request?.PaymentMethodId;
+            if (request == null)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    error = "Request body is required",
+                    statusCode = 400
+                });
+            }
 
             try
             {
-                var order = await _orderService.CreateOrderAsync(currentUser.UserId, paymentMethodId);
+                var submission = await _sellSubmissionService.CreateSellSubmissionAsync(currentUser.UserId, request);
 
                 return StatusCode(201, new
                 {
                     success = true,
-                    data = order
+                    data = submission
                 });
             }
-            catch (InvalidOperationException ex)
+            catch (ArgumentException ex)
             {
                 return BadRequest(new
                 {
@@ -63,14 +70,14 @@ public class OrdersController : ControllerBase
             return StatusCode(500, new
             {
                 success = false,
-                error = "An error occurred while creating the order",
+                error = "An error occurred while creating the submission",
                 statusCode = 500
             });
         }
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetOrders([FromQuery] string? status = null)
+    public async Task<IActionResult> GetSellSubmissions([FromQuery] string? status = null)
     {
         try
         {
@@ -86,12 +93,12 @@ public class OrdersController : ControllerBase
                 });
             }
 
-            var orders = await _orderService.GetUserOrdersAsync(currentUser.UserId, status);
+            var submissions = await _sellSubmissionService.GetUserSubmissionsAsync(currentUser.UserId, status);
 
             return Ok(new
             {
                 success = true,
-                data = orders
+                data = submissions
             });
         }
         catch (Exception)
@@ -99,14 +106,14 @@ public class OrdersController : ControllerBase
             return StatusCode(500, new
             {
                 success = false,
-                error = "An error occurred while retrieving orders",
+                error = "An error occurred while retrieving submissions",
                 statusCode = 500
             });
         }
     }
 
-    [HttpGet("{orderId}")]
-    public async Task<IActionResult> GetOrderDetails(int orderId)
+    [HttpGet("{submissionId}")]
+    public async Task<IActionResult> GetSubmissionDetails(int submissionId)
     {
         try
         {
@@ -122,26 +129,26 @@ public class OrdersController : ControllerBase
                 });
             }
 
-            if (orderId <= 0)
+            if (submissionId <= 0)
             {
                 return BadRequest(new
                 {
                     success = false,
-                    error = "Invalid order ID",
+                    error = "Invalid submission ID",
                     statusCode = 400
                 });
             }
 
             try
             {
-                var order = await _orderService.GetOrderDetailsAsync(orderId, currentUser.UserId);
+                var submission = await _sellSubmissionService.GetSubmissionDetailsAsync(submissionId, currentUser.UserId);
 
-                if (order == null)
+                if (submission == null)
                 {
                     return NotFound(new
                     {
                         success = false,
-                        error = "Order not found",
+                        error = "Submission not found",
                         statusCode = 404
                     });
                 }
@@ -149,7 +156,7 @@ public class OrdersController : ControllerBase
                 return Ok(new
                 {
                     success = true,
-                    data = order
+                    data = submission
                 });
             }
             catch (UnauthorizedAccessException)
@@ -157,7 +164,7 @@ public class OrdersController : ControllerBase
                 return StatusCode(403, new
                 {
                     success = false,
-                    error = "You do not have access to this order",
+                    error = "You do not have access to this submission",
                     statusCode = 403
                 });
             }
@@ -167,18 +174,18 @@ public class OrdersController : ControllerBase
             return StatusCode(500, new
             {
                 success = false,
-                error = "An error occurred while retrieving order details",
+                error = "An error occurred while retrieving submission details",
                 statusCode = 500
             });
         }
     }
 
-    [HttpPut("{orderId}/status")]
-    public async Task<IActionResult> UpdateOrderStatus(int orderId, [FromBody] UpdateOrderStatusRequest? request)
+    [HttpPost("{submissionId}/negotiate")]
+    public async Task<IActionResult> Negotiate(int submissionId, [FromBody] NegotiateRequest? request)
     {
         try
         {
-            // Check authentication and admin access
+            // Check authentication
             var currentUser = AuthHelper.GetCurrentUser(Request, _sessionService);
             if (currentUser == null)
             {
@@ -187,17 +194,6 @@ public class OrdersController : ControllerBase
                     success = false,
                     error = "Not authenticated",
                     statusCode = 401
-                });
-            }
-
-            // Check if user is admin
-            if (currentUser.UserType != "Admin")
-            {
-                return StatusCode(403, new
-                {
-                    success = false,
-                    error = "Admin access required",
-                    statusCode = 403
                 });
             }
 
@@ -211,48 +207,24 @@ public class OrdersController : ControllerBase
                 });
             }
 
-            if (orderId <= 0)
+            if (submissionId <= 0)
             {
                 return BadRequest(new
                 {
                     success = false,
-                    error = "Invalid order ID",
-                    statusCode = 400
-                });
-            }
-
-            if (string.IsNullOrWhiteSpace(request.Status))
-            {
-                return BadRequest(new
-                {
-                    success = false,
-                    error = "Status is required",
+                    error = "Invalid submission ID",
                     statusCode = 400
                 });
             }
 
             try
             {
-                var success = await _orderService.UpdateOrderStatusAsync(orderId, request.Status);
+                var response = await _sellSubmissionService.NegotiateAsync(submissionId, currentUser.UserId, request);
 
-                if (success)
+                return Ok(new
                 {
-                    return Ok(new
-                    {
-                        success = true,
-                        data = new
-                        {
-                            orderId = orderId,
-                            status = request.Status
-                        }
-                    });
-                }
-
-                return StatusCode(500, new
-                {
-                    success = false,
-                    error = "Failed to update order status",
-                    statusCode = 500
+                    success = true,
+                    data = response
                 });
             }
             catch (KeyNotFoundException ex)
@@ -282,13 +254,22 @@ public class OrdersController : ControllerBase
                     statusCode = 400
                 });
             }
+            catch (UnauthorizedAccessException)
+            {
+                return StatusCode(403, new
+                {
+                    success = false,
+                    error = "You do not have access to this submission",
+                    statusCode = 403
+                });
+            }
         }
         catch (Exception)
         {
             return StatusCode(500, new
             {
                 success = false,
-                error = "An error occurred while updating order status",
+                error = "An error occurred while processing the negotiation",
                 statusCode = 500
             });
         }

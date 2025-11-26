@@ -140,5 +140,49 @@ public class AuthService : IAuthService
             Token = token
         };
     }
+
+    public async Task<List<AdminUserListResponse>> GetAdminUsersAsync(string? userType = null)
+    {
+        var query = @"
+            SELECT 
+                UserID,
+                Username,
+                Email,
+                FirstName,
+                LastName,
+                UserType,
+                CreatedDate
+            FROM `User`";
+
+        var parameters = new Dictionary<string, object>();
+
+        if (!string.IsNullOrWhiteSpace(userType))
+        {
+            query += " WHERE UserType = @UserType";
+            parameters.Add("@UserType", userType);
+        }
+
+        query += " ORDER BY CreatedDate DESC";
+
+        var dataTable = await _databaseService.ExecuteQueryAsync(query, parameters.Count > 0 ? parameters : null);
+
+        var users = new List<AdminUserListResponse>();
+
+        foreach (DataRow row in dataTable.Rows)
+        {
+            users.Add(new AdminUserListResponse
+            {
+                UserId = Convert.ToInt32(row["UserID"]),
+                Username = row["Username"].ToString() ?? string.Empty,
+                Email = row["Email"].ToString() ?? string.Empty,
+                FirstName = row["FirstName"].ToString() ?? string.Empty,
+                LastName = row["LastName"].ToString() ?? string.Empty,
+                UserType = row["UserType"].ToString() ?? string.Empty,
+                CreatedDate = Convert.ToDateTime(row["CreatedDate"])
+            });
+        }
+
+        return users;
+    }
 }
 

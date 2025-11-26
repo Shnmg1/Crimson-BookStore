@@ -348,5 +348,154 @@ public class OrderService : IOrderService
             Payment = payment
         };
     }
+
+    public async Task<List<AdminOrderListResponse>> GetAdminOrdersAsync(string? status = null)
+    {
+        var query = @"
+            SELECT 
+                po.OrderID,
+                po.UserID,
+                u.Username,
+                po.OrderDate,
+                po.Status,
+                po.TotalAmount,
+                COUNT(oli.LineItemID) as item_count
+            FROM PurchaseOrder po
+            JOIN User u ON po.UserID = u.UserID
+            LEFT JOIN OrderLineItem oli ON po.OrderID = oli.OrderID";
+
+        var parameters = new Dictionary<string, object>();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query += " WHERE po.Status = @Status";
+            parameters.Add("@Status", status);
+        }
+
+        query += @"
+            GROUP BY po.OrderID, po.UserID, u.Username, po.OrderDate, po.Status, po.TotalAmount
+            ORDER BY po.OrderDate DESC";
+
+        var dataTable = await _databaseService.ExecuteQueryAsync(query, parameters.Count > 0 ? parameters : null);
+
+        var orders = new List<AdminOrderListResponse>();
+
+        foreach (DataRow row in dataTable.Rows)
+        {
+            orders.Add(new AdminOrderListResponse
+            {
+                OrderId = Convert.ToInt32(row["OrderID"]),
+                UserId = Convert.ToInt32(row["UserID"]),
+                Username = row["Username"].ToString() ?? string.Empty,
+                OrderDate = Convert.ToDateTime(row["OrderDate"]),
+                Status = row["Status"].ToString() ?? string.Empty,
+                TotalAmount = Convert.ToDecimal(row["TotalAmount"]),
+                ItemCount = Convert.ToInt32(row["item_count"])
+            });
+        }
+
+        return orders;
+    }
+
+    public async Task<bool> UpdateOrderStatusAsync(int orderId, string newStatus)
+    {
+        // Validate status
+        var validStatuses = new[] { "New", "Processing", "Fulfilled", "Cancelled" };
+        if (!validStatuses.Contains(newStatus))
+        {
+            throw new ArgumentException($"Invalid status. Must be one of: {string.Join(", ", validStatuses)}");
+        }
+
+        // Get current order status
+        var getOrderQuery = "SELECT Status FROM PurchaseOrder WHERE OrderID = @OrderID";
+        var orderResult = await _databaseService.ExecuteQueryAsync(
+            getOrderQuery,
+            new Dictionary<string, object> { { "@OrderID", orderId } }
+        );
+
+        if (orderResult.Rows.Count == 0)
+        {
+            throw new KeyNotFoundException("Order not found");
+        }
+
+        var currentStatus = orderResult.Rows[0]["Status"].ToString() ?? string.Empty;
+
+        // Validate status transition
+        var validTransitions = new Dictionary<string, string[]>
+        {
+            { "New", new[] { "Processing", "Cancelled" } },
+            { "Processing", new[] { "Fulfilled", "Cancelled" } },
+            { "Fulfilled", new string[] { } }, // Cannot transition from Fulfilled
+            { "Cancelled", new string[] { } }  // Cannot transition from Cancelled
+        };
+
+        if (!validTransitions.ContainsKey(currentStatus) || 
+            !validTransitions[currentStatus].Contains(newStatus))
+        {
+            throw new InvalidOperationException(
+                $"Invalid status transition from '{currentStatus}' to '{newStatus}'. " +
+                $"Valid transitions: {string.Join(", ", validTransitions[currentStatus])}");
+        }
+
+        // If cancelling, we need to restock books (set Status = 'Available')
+        if (newStatus == "Cancelled")
+        {
+            // Start transaction for cancellation (update order status and restock books)
+            await using var connection = new MySqlConnection(_connectionString);
+            await connection.OpenAsync();
+            await using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                // Update order status
+                var updateOrderQuery = @"
+                    UPDATE PurchaseOrder
+                    SET Status = @Status
+                    WHERE OrderID = @OrderID";
+
+                await using var updateOrderCmd = new MySqlCommand(updateOrderQuery, connection, transaction);
+                updateOrderCmd.Parameters.AddWithValue("@Status", newStatus);
+                updateOrderCmd.Parameters.AddWithValue("@OrderID", orderId);
+                await updateOrderCmd.ExecuteNonQueryAsync();
+
+                // Restock books (set Status = 'Available' for all books in the order)
+                var restockBooksQuery = @"
+                    UPDATE Book
+                    SET Status = 'Available'
+                    WHERE BookID IN (
+                        SELECT BookID FROM OrderLineItem WHERE OrderID = @OrderID
+                    )";
+
+                await using var restockBooksCmd = new MySqlCommand(restockBooksQuery, connection, transaction);
+                restockBooksCmd.Parameters.AddWithValue("@OrderID", orderId);
+                await restockBooksCmd.ExecuteNonQueryAsync();
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+        else
+        {
+            // Simple status update (no restocking needed)
+            var updateQuery = @"
+                UPDATE PurchaseOrder
+                SET Status = @Status
+                WHERE OrderID = @OrderID";
+
+            var parameters = new Dictionary<string, object>
+            {
+                { "@OrderID", orderId },
+                { "@Status", newStatus }
+            };
+
+            var rowsAffected = await _databaseService.ExecuteNonQueryAsync(updateQuery, parameters);
+            return rowsAffected > 0;
+        }
+    }
 }
 
