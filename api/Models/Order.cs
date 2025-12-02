@@ -9,7 +9,7 @@ public class Order
     public int OrderId { get; set; }
     public int UserId { get; set; }
     public DateTime OrderDate { get; set; }
-    public string Status { get; set; } = "New"; // 'New', 'Processing', 'Fulfilled', 'Cancelled'
+    public string Status { get; set; } = "New"; // 'New', 'Processing', 'Fulfilled', 'Complete', 'Cancelled'
     public decimal TotalAmount { get; set; }
 }
 

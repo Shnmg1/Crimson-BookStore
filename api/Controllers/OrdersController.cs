@@ -283,12 +283,16 @@ public class OrdersController : ControllerBase
                 });
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            // Log the actual exception for debugging
+            Console.WriteLine($"Error updating order status: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            
             return StatusCode(500, new
             {
                 success = false,
-                error = "An error occurred while updating order status",
+                error = $"An error occurred while updating order status: {ex.Message}",
                 statusCode = 500
             });
         }

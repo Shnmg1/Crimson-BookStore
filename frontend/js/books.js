@@ -19,9 +19,10 @@ async function getBooks(search = null, isbn = null, courseMajor = null, page = 1
 }
 
 // Get book by ID
-async function getBookById(bookId) {
+async function getBookById(bookId, admin = false) {
     try {
-        const response = await apiCall(`/books/${bookId}`);
+        const url = admin ? `/books/${bookId}?admin=true` : `/books/${bookId}`;
+        const response = await apiCall(url);
         return response;
     } catch (error) {
         console.error('Failed to fetch book:', error);

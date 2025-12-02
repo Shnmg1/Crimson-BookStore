@@ -29,10 +29,26 @@ public class BooksController : ControllerBase
         [FromQuery] string? isbn = null,
         [FromQuery] string? courseMajor = null,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 20,
+        [FromQuery] bool admin = false)
     {
         try
         {
+            // If admin parameter is true and user is admin, return all individual books
+            if (admin)
+            {
+                var currentUser = AuthHelper.GetCurrentUser(Request, _sessionService);
+                if (currentUser != null && IsAdmin(currentUser))
+                {
+                    var allBooks = await _bookService.GetAllBooksForAdminAsync();
+                    return Ok(new
+                    {
+                        success = true,
+                        data = allBooks
+                    });
+                }
+            }
+
             var books = await _bookService.GetAvailableBooksAsync(search, isbn, courseMajor);
 
             // Simple pagination (for school project - keep it simple)
@@ -66,11 +82,28 @@ public class BooksController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetBookById(int id)
+    public async Task<IActionResult> GetBookById(int id, [FromQuery] bool admin = false)
     {
         try
         {
-            var book = await _bookService.GetBookByIdAsync(id);
+            // If admin, get book regardless of status
+            BookDetailResponse? book;
+            if (admin)
+            {
+                var currentUser = AuthHelper.GetCurrentUser(Request, _sessionService);
+                if (currentUser != null && IsAdmin(currentUser))
+                {
+                    book = await _bookService.GetBookByIdForAdminAsync(id);
+                }
+                else
+                {
+                    book = await _bookService.GetBookByIdAsync(id);
+                }
+            }
+            else
+            {
+                book = await _bookService.GetBookByIdAsync(id);
+            }
 
             if (book == null)
             {

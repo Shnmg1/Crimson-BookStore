@@ -400,7 +400,7 @@ public class OrderService : IOrderService
     public async Task<bool> UpdateOrderStatusAsync(int orderId, string newStatus)
     {
         // Validate status
-        var validStatuses = new[] { "New", "Processing", "Fulfilled", "Cancelled" };
+        var validStatuses = new[] { "New", "Processing", "Fulfilled", "Complete", "Cancelled" };
         if (!validStatuses.Contains(newStatus))
         {
             throw new ArgumentException($"Invalid status. Must be one of: {string.Join(", ", validStatuses)}");
@@ -425,7 +425,8 @@ public class OrderService : IOrderService
         {
             { "New", new[] { "Processing", "Cancelled" } },
             { "Processing", new[] { "Fulfilled", "Cancelled" } },
-            { "Fulfilled", new string[] { } }, // Cannot transition from Fulfilled
+            { "Fulfilled", new[] { "Complete" } }, // Can transition from Fulfilled to Complete
+            { "Complete", new string[] { } }, // Cannot transition from Complete (final state)
             { "Cancelled", new string[] { } }  // Cannot transition from Cancelled
         };
 
@@ -459,16 +460,19 @@ public class OrderService : IOrderService
                 await updateOrderCmd.ExecuteNonQueryAsync();
 
                 // Restock books (set Status = 'Available' for all books in the order)
+                // Using JOIN instead of subquery for better MySQL compatibility
                 var restockBooksQuery = @"
-                    UPDATE Book
-                    SET Status = 'Available'
-                    WHERE BookID IN (
-                        SELECT BookID FROM OrderLineItem WHERE OrderID = @OrderID
-                    )";
+                    UPDATE Book b
+                    INNER JOIN OrderLineItem oli ON b.BookID = oli.BookID
+                    SET b.Status = 'Available'
+                    WHERE oli.OrderID = @OrderID";
 
                 await using var restockBooksCmd = new MySqlCommand(restockBooksQuery, connection, transaction);
                 restockBooksCmd.Parameters.AddWithValue("@OrderID", orderId);
-                await restockBooksCmd.ExecuteNonQueryAsync();
+                var booksRestocked = await restockBooksCmd.ExecuteNonQueryAsync();
+                
+                // Log for debugging (optional - can be removed in production)
+                Console.WriteLine($"Order {orderId} cancelled: {booksRestocked} book(s) restocked");
 
                 await transaction.CommitAsync();
                 return true;

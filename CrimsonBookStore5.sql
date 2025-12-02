@@ -140,13 +140,13 @@ CREATE TABLE PriceNegotiation (
 
 -- ----------------------------------------------------------------------------
 -- PurchaseOrder Table (Simplified Status)
--- Status flow: New -> Processing -> Fulfilled (or Cancelled)
+-- Status flow: New -> Processing -> Fulfilled -> Complete (or Cancelled)
 -- ----------------------------------------------------------------------------
 CREATE TABLE PurchaseOrder (
     OrderID INT AUTO_INCREMENT PRIMARY KEY,
     UserID INT NOT NULL,
     OrderDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    Status ENUM('New', 'Processing', 'Fulfilled', 'Cancelled') NOT NULL DEFAULT 'New',
+    Status ENUM('New', 'Processing', 'Fulfilled', 'Complete', 'Cancelled') NOT NULL DEFAULT 'New',
     TotalAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     
     -- Foreign Keys
@@ -258,6 +258,7 @@ CREATE TABLE Payment (
     PaymentDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     Amount DECIMAL(10,2) NOT NULL,
     PaymentStatus ENUM('Pending', 'Completed', 'Failed', 'Refunded') NOT NULL DEFAULT 'Completed',
+    
     
     -- Foreign Keys
     CONSTRAINT fk_payment_order FOREIGN KEY (OrderID)

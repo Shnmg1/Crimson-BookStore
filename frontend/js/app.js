@@ -1,7 +1,4 @@
-// Store API wrapper reference from admin.js before it gets overwritten
-// admin.js loads before app.js, so window.updateOrderStatus should be available
-// We capture it here at the top level before defining our handler function
-const updateOrderStatusAPI = window.updateOrderStatus;
+// Note: updateOrderStatus function is defined below and calls the API directly
 
 // Main application logic
 document.addEventListener('DOMContentLoaded', async () => {
@@ -212,7 +209,7 @@ function showBooksPage() {
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                 <h2 class="ua-card-title" style="margin: 0;">Browse Books</h2>
                 <div style="display: flex; gap: 0.5rem; flex: 1; max-width: 500px;">
-                    <input type="text" class="ua-search-bar" id="searchInput" placeholder="Search for what you are looking for..." onkeyup="handleSearchInput(event)" style="margin: 0;">
+                    <input type="text" class="ua-search-bar" id="searchInput" placeholder="Search by title, author, ISBN, or course..." onkeyup="handleSearchInput(event)" style="margin: 0;">
                     <button class="btn-ua-primary" type="button" onclick="handleSearch()" style="padding: 0.75rem 1rem;">
                         <i class="bi bi-search"></i>
                     </button>
@@ -622,6 +619,7 @@ function showAdminOrdersPage() {
                     <option value="New">New</option>
                     <option value="Processing">Processing</option>
                     <option value="Fulfilled">Fulfilled</option>
+                    <option value="Complete">Complete</option>
                     <option value="Cancelled">Cancelled</option>
                 </select>
             </div>
@@ -699,18 +697,23 @@ async function loadAdminBooks() {
             }
             
             let html = '<div class="table-responsive"><table class="table table-striped"><thead><tr>';
-            html += '<th>ISBN</th><th>Title</th><th>Author</th><th>Edition</th><th>Price Range</th><th>Stock</th><th>Actions</th>';
+            html += '<th>Book ID</th><th>ISBN</th><th>Title</th><th>Author</th><th>Edition</th><th>Price</th><th>Condition</th><th>Status</th><th>Actions</th>';
             html += '</tr></thead><tbody>';
             
             response.data.forEach(book => {
                 html += `<tr>`;
-                html += `<td>${book.isbn}</td>`;
-                html += `<td>${book.title}</td>`;
-                html += `<td>${book.author}</td>`;
-                html += `<td>${book.edition}</td>`;
-                html += `<td>$${book.minPrice.toFixed(2)} - $${book.maxPrice.toFixed(2)}</td>`;
-                html += `<td>${book.availableCount} copies</td>`;
-                html += `<td><button class="btn btn-sm btn-danger" onclick="handleDeleteBook('${book.isbn}', '${book.edition}')">Delete</button></td>`;
+                html += `<td>#${book.bookId}</td>`;
+                html += `<td>${escapeHtml(book.isbn)}</td>`;
+                html += `<td>${escapeHtml(book.title)}</td>`;
+                html += `<td>${escapeHtml(book.author)}</td>`;
+                html += `<td>${escapeHtml(book.edition)}</td>`;
+                html += `<td>$${book.sellingPrice.toFixed(2)}</td>`;
+                html += `<td>${escapeHtml(book.bookCondition)}</td>`;
+                html += `<td><span class="badge bg-${book.status === 'Available' ? 'success' : 'secondary'}">${escapeHtml(book.status)}</span></td>`;
+                html += `<td>`;
+                html += `<button class="btn btn-sm btn-primary me-1" onclick="showEditBookModal(${book.bookId})">Edit</button> `;
+                html += `<button class="btn btn-sm btn-danger" onclick="handleDeleteBook(${book.bookId})">Delete</button>`;
+                html += `</td>`;
                 html += `</tr>`;
             });
             
@@ -789,7 +792,7 @@ async function loadAdminSubmissions() {
                                     <strong>ISBN:</strong> ${escapeHtml(submission.isbn)}<br>
                                     <strong>${priceLabel}:</strong> <span class="text-primary fw-bold">$${currentPrice.toFixed(2)}</span><br>
                                     ${latestNegotiation ? `<small class="text-muted">Original asking: $${submission.askingPrice.toFixed(2)}</small><br>` : ''}
-                                    <strong>Status:</strong> <span class="badge bg-${getStatusBadgeColor(submission.status)}">${escapeHtml(submission.status)}</span><br>
+                                    <strong>Status:</strong> <span class="badge bg-${getStatusBadgeColor(submission.status)}">${submission.status === 'Approved' ? 'Customer Accepted Offer (Awaiting Admin Approval)' : escapeHtml(submission.status)}</span><br>
                                     <strong>Submitted:</strong> ${new Date(submission.submissionDate).toLocaleDateString()}
                                 </p>
                                 <div class="d-flex gap-2 flex-wrap">
@@ -844,12 +847,19 @@ async function loadAdminOrders() {
                 html += `<td>$${order.totalAmount.toFixed(2)}</td>`;
                 html += `<td>${order.itemCount}</td>`;
                 html += `<td>`;
+                // Show buttons based on current status and valid transitions
                 if (order.status === 'New') {
-                    html += `<button class="btn btn-sm btn-primary" onclick="updateOrderStatus(${order.orderId}, 'Processing')">Process</button> `;
+                    html += `<button class="btn btn-sm btn-primary" onclick="updateOrderStatus(${order.orderId}, 'Processing')">Processing</button> `;
                     html += `<button class="btn btn-sm btn-danger" onclick="updateOrderStatus(${order.orderId}, 'Cancelled')">Cancel</button>`;
                 } else if (order.status === 'Processing') {
-                    html += `<button class="btn btn-sm btn-success" onclick="updateOrderStatus(${order.orderId}, 'Fulfilled')">Fulfill</button> `;
+                    html += `<button class="btn btn-sm btn-success" onclick="updateOrderStatus(${order.orderId}, 'Fulfilled')">Shipped/Fulfilled</button> `;
                     html += `<button class="btn btn-sm btn-danger" onclick="updateOrderStatus(${order.orderId}, 'Cancelled')">Cancel</button>`;
+                } else if (order.status === 'Fulfilled') {
+                    html += `<button class="btn btn-sm btn-primary" onclick="updateOrderStatus(${order.orderId}, 'Complete')">Complete</button>`;
+                } else if (order.status === 'Complete') {
+                    html += `<span class="text-muted">Order completed</span>`;
+                } else if (order.status === 'Cancelled') {
+                    html += `<span class="text-muted">Order cancelled</span>`;
                 }
                 html += `</td>`;
                 html += `</tr>`;
@@ -916,44 +926,25 @@ function getStatusBadgeColor(status) {
         'New': 'primary',
         'Processing': 'warning',
         'Fulfilled': 'success',
+        'Complete': 'success',
         'Cancelled': 'danger',
         'Pending Review': 'warning',
-        'Approved': 'success',
+        'Approved': 'info', // Changed to 'info' to indicate it's pending admin approval
         'Rejected': 'danger',
+        'Completed': 'success',
         'Completed': 'success'
     };
     return colors[status] || 'secondary';
 }
 
 // Admin action handlers
-function updateOrderStatus(orderId, newStatus) {
-    // Create confirmation modal
-    const modalHTML = `
-        <div class="modal fade" id="updateOrderStatusModal" tabindex="-1" aria-labelledby="updateOrderStatusModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title text-white" id="updateOrderStatusModalLabel">Confirm Status Change</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="text-white">Are you sure you want to change order #${orderId} status to <strong>${newStatus}</strong>?</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-primary" onclick="confirmUpdateOrderStatus(${orderId}, '${newStatus}')">
-                            Update Status
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Remove existing modal if any
-    const existingModal = document.getElementById('updateOrderStatusModal');
-    if (existingModal) {
-        existingModal.remove();
+async function updateOrderStatus(orderId, newStatus) {
+    const confirmMessage = newStatus === 'Cancelled' 
+        ? `Are you sure you want to cancel order #${orderId}? All books in this order will be automatically restocked.`
+        : `Are you sure you want to change order #${orderId} status to ${newStatus}?`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
     }
 
     // Add modal to body
@@ -976,14 +967,17 @@ async function confirmUpdateOrderStatus(orderId, newStatus) {
     if (modal) modal.hide();
 
     try {
-        // Use the stored API wrapper reference from admin.js
-        if (!updateOrderStatusAPI || typeof updateOrderStatusAPI !== 'function') {
-            throw new Error('Order status API function not available. Make sure admin.js is loaded.');
-        }
+        // Call the API directly using the same pattern as admin.js
+        const response = await apiCall(`/orders/${orderId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus })
+        });
         
-        const response = await updateOrderStatusAPI(orderId, newStatus);
         if (response.success) {
-            showAlert(`Order status updated to ${newStatus}`, 'success');
+            const successMessage = newStatus === 'Cancelled'
+                ? `Order #${orderId} cancelled successfully. All books have been automatically restocked.`
+                : `Order status updated to ${newStatus}`;
+            showAlert(successMessage, 'success');
             loadAdminOrders();
         } else {
             showAlert(response.error || 'Failed to update order status', 'danger');
@@ -1064,78 +1058,108 @@ async function confirmRejectSubmission(submissionId) {
     }
 }
 
-function showApproveModal(submissionId) {
-    // Create modal for approval
-    const modalHTML = `
-        <div class="modal fade" id="approveSubmissionModal" tabindex="-1" aria-labelledby="approveSubmissionModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title text-white" id="approveSubmissionModalLabel">Approve Submission</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="approveSubmissionForm">
-                            <div class="mb-3">
-                                <label for="approveSellingPrice" class="form-label text-white">Selling Price ($) <span class="text-danger">*</span></label>
-                                <div class="input-group">
-                                    <span class="input-group-text" style="background-color: var(--bg-darker); border-color: var(--border-dark); color: var(--text-light);">$</span>
-                                    <input type="number" class="form-control" id="approveSellingPrice" 
-                                           step="0.01" min="0.01" required style="color: var(--text-light);">
-                                </div>
-                                <small class="form-text" style="color: var(--text-muted);">Enter the price at which this book will be sold.</small>
+async function showApproveModal(submissionId) {
+    try {
+        // Get submission details to show current asking price and negotiation info
+        const detailsResponse = await window.getAdminSubmissionDetails(submissionId);
+        if (!detailsResponse.success || !detailsResponse.data) {
+            showAlert('Failed to load submission details', 'danger');
+            return;
+        }
+        
+        const submission = detailsResponse.data;
+        
+        // Get accepted negotiation price if available
+        const hasAcceptedNegotiation = submission.negotiations && submission.negotiations.some(n => n.offerStatus === 'Accepted');
+        const acceptedNegotiation = hasAcceptedNegotiation 
+            ? submission.negotiations.find(n => n.offerStatus === 'Accepted')
+            : null;
+        
+        const acquisitionCost = acceptedNegotiation 
+            ? acceptedNegotiation.offeredPrice 
+            : submission.askingPrice;
+        
+        const minSellingPrice = acquisitionCost + 0.01; // Must be greater than acquisition cost
+        
+        // Create and show approve modal
+        const modalHtml = `
+            <div class="modal fade" id="approveSubmissionModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Approve Submission #${submission.submissionId}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <strong>Book:</strong> ${escapeHtml(submission.title)} by ${escapeHtml(submission.author)}<br>
+                                <strong>ISBN:</strong> ${escapeHtml(submission.isbn)} | <strong>Edition:</strong> ${escapeHtml(submission.edition)}<br>
+                                <strong>Acquisition Cost:</strong> $${acquisitionCost.toFixed(2)}${acceptedNegotiation ? ' (from accepted negotiation)' : ' (asking price)'}<br>
+                                <strong>Minimum Selling Price:</strong> $${minSellingPrice.toFixed(2)}
                             </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-success" onclick="handleApproveSubmission(${submissionId})">
-                            Approve
-                        </button>
+                            <form id="approveSubmissionForm">
+                                <div class="mb-3">
+                                    <label class="form-label">Selling Price *</label>
+                                    <input type="number" step="0.01" min="${minSellingPrice}" class="form-control" id="approveSellingPrice" 
+                                           value="${minSellingPrice.toFixed(2)}" required>
+                                    <small class="text-muted">Must be greater than acquisition cost ($${acquisitionCost.toFixed(2)})</small>
+                                </div>
+                                <div class="alert alert-success">
+                                    <strong>✓ Automatic Process:</strong> When approved, the book will be automatically added to inventory with status "Available".
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-success" onclick="handleApproveSubmission(${submissionId})">Approve & Add to Inventory</button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    `;
-
-    // Remove existing modal if any
-    const existingModal = document.getElementById('approveSubmissionModal');
-    if (existingModal) {
-        existingModal.remove();
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('approveSubmissionModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Show modal using Bootstrap
+        const modal = new bootstrap.Modal(document.getElementById('approveSubmissionModal'));
+        modal.show();
+        
+        // Clean up when modal is hidden
+        document.getElementById('approveSubmissionModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    } catch (error) {
+        showAlert(error.message || 'Error loading submission details', 'danger');
     }
-
-    // Add modal to body
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-    // Show the modal
-    const modal = new bootstrap.Modal(document.getElementById('approveSubmissionModal'));
-    modal.show();
-
-    // Clean up modal when hidden
-    document.getElementById('approveSubmissionModal').addEventListener('hidden.bs.modal', function() {
-        this.remove();
-    });
 }
 
-// Handle approve submission
 async function handleApproveSubmission(submissionId) {
-    const priceInput = document.getElementById('approveSellingPrice');
-
-    if (!priceInput || !priceInput.value || isNaN(parseFloat(priceInput.value)) || parseFloat(priceInput.value) <= 0) {
-        showAlert('Please enter a valid selling price', 'warning');
-        return;
-    }
-
-    const sellingPrice = parseFloat(priceInput.value);
-
-    // Close modal first
-    const modal = bootstrap.Modal.getInstance(document.getElementById('approveSubmissionModal'));
-    if (modal) modal.hide();
-
     try {
+        const sellingPrice = parseFloat(document.getElementById('approveSellingPrice').value);
+        
+        if (!sellingPrice || isNaN(sellingPrice) || sellingPrice <= 0) {
+            showAlert('Invalid selling price', 'danger');
+            return;
+        }
+        
         const response = await approveSubmission(submissionId, sellingPrice);
+        
         if (response.success) {
-            showAlert('Submission approved and book added to inventory', 'success');
+            const bookId = response.data?.bookId || 'N/A';
+            showAlert(`Submission approved successfully! Book #${bookId} has been automatically added to inventory.`, 'success');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('approveSubmissionModal'));
+            modal.hide();
+            
+            // Reload submissions list
             loadAdminSubmissions();
         } else {
             showAlert(response.error || 'Failed to approve submission', 'danger');
@@ -1310,7 +1334,7 @@ async function showAdminSubmissionDetails(submissionId) {
                                     </tr>
                                     <tr>
                                         <th>Status:</th>
-                                        <td><span class="badge bg-${getStatusBadgeColor(submission.status)}">${escapeHtml(submission.status)}</span></td>
+                                        <td><span class="badge bg-${getStatusBadgeColor(submission.status)}">${submission.status === 'Approved' ? 'Customer Accepted Offer (Awaiting Admin Approval)' : escapeHtml(submission.status)}</span></td>
                                     </tr>
                                     <tr>
                                         <th>Submitted:</th>
@@ -1523,10 +1547,155 @@ async function handleAddBook() {
     }
 }
 
-async function handleDeleteBook(isbn, edition) {
-    // Note: This is simplified - in a real app, you'd need to get the actual BookID
-    // For now, we'll show a message that this needs the BookID
-    showAlert('Delete functionality requires BookID. Please use the API directly or enhance this feature.', 'info');
+async function handleDeleteBook(bookId) {
+    if (!confirm(`Are you sure you want to delete book #${bookId}? This action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        const response = await deleteBook(bookId);
+        if (response.success) {
+            showAlert('Book deleted successfully', 'success');
+            loadAdminBooks();
+        } else {
+            showAlert(response.error || 'Failed to delete book', 'danger');
+        }
+    } catch (error) {
+        showAlert(error.message || 'Error deleting book', 'danger');
+    }
+}
+
+async function showEditBookModal(bookId) {
+    try {
+        // Get book details (admin mode to get any book including sold)
+        const response = await getBookById(bookId, true);
+        if (!response.success || !response.data) {
+            showAlert('Book not found', 'danger');
+            return;
+        }
+        
+        const book = response.data;
+        
+        // Create and show edit modal
+        const modalHtml = `
+            <div class="modal fade" id="editBookModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Edit Book #${book.bookId}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="editBookForm">
+                                <div class="mb-3">
+                                    <label class="form-label">ISBN</label>
+                                    <input type="text" class="form-control" id="editISBN" value="${escapeHtml(book.isbn)}" readonly>
+                                    <small class="text-muted">ISBN cannot be changed</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Title</label>
+                                    <input type="text" class="form-control" id="editTitle" value="${escapeHtml(book.title)}" readonly>
+                                    <small class="text-muted">Title cannot be changed</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Author</label>
+                                    <input type="text" class="form-control" id="editAuthor" value="${escapeHtml(book.author)}" readonly>
+                                    <small class="text-muted">Author cannot be changed</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Edition</label>
+                                    <input type="text" class="form-control" id="editEdition" value="${escapeHtml(book.edition)}" readonly>
+                                    <small class="text-muted">Edition cannot be changed</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Selling Price *</label>
+                                    <input type="number" step="0.01" min="0.01" class="form-control" id="editSellingPrice" value="${book.sellingPrice}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Book Condition *</label>
+                                    <select class="form-select" id="editBookCondition" required>
+                                        <option value="New" ${book.bookCondition === 'New' ? 'selected' : ''}>New</option>
+                                        <option value="Good" ${book.bookCondition === 'Good' ? 'selected' : ''}>Good</option>
+                                        <option value="Fair" ${book.bookCondition === 'Fair' ? 'selected' : ''}>Fair</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Course/Major</label>
+                                    <input type="text" class="form-control" id="editCourseMajor" value="${book.courseMajor || ''}">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Status</label>
+                                    <select class="form-select" id="editStatus">
+                                        <option value="Available" ${book.status === 'Available' ? 'selected' : ''}>Available</option>
+                                        <option value="Sold" ${book.status === 'Sold' ? 'selected' : ''}>Sold</option>
+                                    </select>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" onclick="handleUpdateBook(${book.bookId})">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('editBookModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Show modal using Bootstrap
+        const modal = new bootstrap.Modal(document.getElementById('editBookModal'));
+        modal.show();
+        
+        // Clean up when modal is hidden
+        document.getElementById('editBookModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    } catch (error) {
+        showAlert(error.message || 'Error loading book details', 'danger');
+    }
+}
+
+async function handleUpdateBook(bookId) {
+    try {
+        const sellingPrice = parseFloat(document.getElementById('editSellingPrice').value);
+        const bookCondition = document.getElementById('editBookCondition').value;
+        const courseMajor = document.getElementById('editCourseMajor').value.trim() || null;
+        const status = document.getElementById('editStatus').value;
+        
+        if (!sellingPrice || sellingPrice <= 0) {
+            showAlert('Selling price must be greater than 0', 'danger');
+            return;
+        }
+        
+        const updateData = {
+            sellingPrice: sellingPrice,
+            bookCondition: bookCondition,
+            courseMajor: courseMajor,
+            status: status
+        };
+        
+        const response = await updateBook(bookId, updateData);
+        if (response.success) {
+            showAlert('Book updated successfully', 'success');
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editBookModal'));
+            modal.hide();
+            // Reload books list
+            loadAdminBooks();
+        } else {
+            showAlert(response.error || 'Failed to update book', 'danger');
+        }
+    } catch (error) {
+        showAlert(error.message || 'Error updating book', 'danger');
+    }
 }
 
 // Export admin functions
@@ -1537,6 +1706,7 @@ window.loadAdminUsers = loadAdminUsers;
 window.updateOrderStatus = updateOrderStatus;
 window.handleRejectSubmission = handleRejectSubmission;
 window.showApproveModal = showApproveModal;
+window.handleApproveSubmission = handleApproveSubmission;
 window.showNegotiateModal = showNegotiateModal;
 window.handleAdminNegotiate = handleAdminNegotiate;
 window.showAdminSubmissionDetails = showAdminSubmissionDetails;

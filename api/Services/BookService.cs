@@ -38,7 +38,8 @@ public class BookService : IBookService
         // Add search filter if provided
         if (!string.IsNullOrWhiteSpace(search))
         {
-            query += " AND (Title LIKE @Search OR Author LIKE @Search OR ISBN = @Search OR CourseMajor LIKE @Search)";
+            // Use LIKE for all fields including ISBN to support partial ISBN searches
+            query += " AND (Title LIKE @Search OR Author LIKE @Search OR ISBN LIKE @Search OR CourseMajor LIKE @Search)";
             parameters.Add("@Search", $"%{search}%");
         }
 
@@ -114,6 +115,57 @@ public class BookService : IBookService
                    AND b2.Status = 'Available') as available_count
             FROM Book b
             WHERE b.BookID = @BookID AND b.Status = 'Available'";
+
+        var parameters = new Dictionary<string, object>
+        {
+            { "@BookID", bookId }
+        };
+
+        var dataTable = await _databaseService.ExecuteQueryAsync(query, parameters);
+
+        if (dataTable.Rows.Count == 0)
+        {
+            return null;
+        }
+
+        var row = dataTable.Rows[0];
+
+        return new BookDetailResponse
+        {
+            BookId = Convert.ToInt32(row["BookID"]),
+            ISBN = row["ISBN"].ToString() ?? string.Empty,
+            Title = row["Title"].ToString() ?? string.Empty,
+            Author = row["Author"].ToString() ?? string.Empty,
+            Edition = row["Edition"].ToString() ?? string.Empty,
+            SellingPrice = Convert.ToDecimal(row["SellingPrice"]),
+            BookCondition = row["BookCondition"].ToString() ?? string.Empty,
+            CourseMajor = row["CourseMajor"] == DBNull.Value ? null : row["CourseMajor"].ToString(),
+            Status = row["Status"].ToString() ?? string.Empty,
+            AvailableCount = Convert.ToInt32(row["available_count"])
+        };
+    }
+
+    public async Task<BookDetailResponse?> GetBookByIdForAdminAsync(int bookId)
+    {
+        // Get book regardless of status (for admin)
+        var query = @"
+            SELECT 
+                b.BookID,
+                b.ISBN,
+                b.Title,
+                b.Author,
+                b.Edition,
+                b.SellingPrice,
+                b.BookCondition,
+                b.CourseMajor,
+                b.Status,
+                (SELECT COUNT(*) 
+                 FROM Book b2 
+                 WHERE b2.ISBN = b.ISBN 
+                   AND b2.Edition = b.Edition 
+                   AND b2.Status = 'Available') as available_count
+            FROM Book b
+            WHERE b.BookID = @BookID";
 
         var parameters = new Dictionary<string, object>
         {
@@ -258,6 +310,53 @@ public class BookService : IBookService
         var lastId = await _databaseService.ExecuteScalarAsync(lastIdQuery);
         
         return Convert.ToInt32(lastId ?? 0);
+    }
+
+    public async Task<List<BookDetailResponse>> GetAllBooksForAdminAsync()
+    {
+        // Get all books (including sold ones) for admin management
+        var query = @"
+            SELECT 
+                b.BookID,
+                b.ISBN,
+                b.Title,
+                b.Author,
+                b.Edition,
+                b.SellingPrice,
+                b.AcquisitionCost,
+                b.BookCondition,
+                b.CourseMajor,
+                b.Status,
+                (SELECT COUNT(*) 
+                 FROM Book b2 
+                 WHERE b2.ISBN = b.ISBN 
+                   AND b2.Edition = b.Edition 
+                   AND b2.Status = 'Available') as available_count
+            FROM Book b
+            ORDER BY b.BookID DESC";
+
+        var dataTable = await _databaseService.ExecuteQueryAsync(query, null);
+
+        var books = new List<BookDetailResponse>();
+
+        foreach (DataRow row in dataTable.Rows)
+        {
+            books.Add(new BookDetailResponse
+            {
+                BookId = Convert.ToInt32(row["BookID"]),
+                ISBN = row["ISBN"].ToString() ?? string.Empty,
+                Title = row["Title"].ToString() ?? string.Empty,
+                Author = row["Author"].ToString() ?? string.Empty,
+                Edition = row["Edition"].ToString() ?? string.Empty,
+                SellingPrice = Convert.ToDecimal(row["SellingPrice"]),
+                BookCondition = row["BookCondition"].ToString() ?? string.Empty,
+                CourseMajor = row["CourseMajor"] == DBNull.Value ? null : row["CourseMajor"].ToString(),
+                Status = row["Status"].ToString() ?? string.Empty,
+                AvailableCount = Convert.ToInt32(row["available_count"])
+            });
+        }
+
+        return books;
     }
 
     public async Task<bool> UpdateBookAsync(int bookId, UpdateBookRequest request)

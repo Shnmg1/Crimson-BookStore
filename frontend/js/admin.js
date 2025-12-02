@@ -2,7 +2,7 @@
 
 // Admin Books
 async function getAdminBooks() {
-    return apiCall('/books');
+    return apiCall('/books?admin=true');
 }
 
 async function createBook(bookData) {
