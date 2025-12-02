@@ -292,10 +292,54 @@ async function handleAddPaymentMethod() {
 }
 
 // Handle delete payment method
-async function handleDeletePaymentMethod(paymentMethodId) {
-    if (!confirm('Are you sure you want to delete this payment method? This action cannot be undone.')) {
-        return;
+function handleDeletePaymentMethod(paymentMethodId) {
+    // Create confirmation modal
+    const modalHTML = `
+        <div class="modal fade" id="deletePaymentMethodModal" tabindex="-1" aria-labelledby="deletePaymentMethodModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title text-white" id="deletePaymentMethodModalLabel">Confirm Delete</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-white">Are you sure you want to delete this payment method? This action cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" onclick="confirmDeletePaymentMethod(${paymentMethodId})">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('deletePaymentMethodModal');
+    if (existingModal) {
+        existingModal.remove();
     }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('deletePaymentMethodModal'));
+    modal.show();
+
+    // Clean up modal when hidden
+    document.getElementById('deletePaymentMethodModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+// Confirm delete payment method
+async function confirmDeletePaymentMethod(paymentMethodId) {
+    // Close modal first
+    const modal = bootstrap.Modal.getInstance(document.getElementById('deletePaymentMethodModal'));
+    if (modal) modal.hide();
 
     try {
         const response = await deletePaymentMethod(paymentMethodId);
@@ -396,6 +440,7 @@ window.loadPaymentMethods = loadPaymentMethods;
 window.showAddPaymentMethodModal = showAddPaymentMethodModal;
 window.handleAddPaymentMethod = handleAddPaymentMethod;
 window.handleDeletePaymentMethod = handleDeletePaymentMethod;
+window.confirmDeletePaymentMethod = confirmDeletePaymentMethod;
 window.handleSetDefault = handleSetDefault;
 window.loadPaymentMethodsForCheckout = loadPaymentMethodsForCheckout;
 

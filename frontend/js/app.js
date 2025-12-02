@@ -946,7 +946,26 @@ async function updateOrderStatus(orderId, newStatus) {
     if (!confirm(confirmMessage)) {
         return;
     }
-    
+
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('updateOrderStatusModal'));
+    modal.show();
+
+    // Clean up modal when hidden
+    document.getElementById('updateOrderStatusModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+// Confirm update order status
+async function confirmUpdateOrderStatus(orderId, newStatus) {
+    // Close modal first
+    const modal = bootstrap.Modal.getInstance(document.getElementById('updateOrderStatusModal'));
+    if (modal) modal.hide();
+
     try {
         // Call the API directly using the same pattern as admin.js
         const response = await apiCall(`/orders/${orderId}/status`, {
@@ -968,10 +987,64 @@ async function updateOrderStatus(orderId, newStatus) {
     }
 }
 
-async function handleRejectSubmission(submissionId) {
-    const reason = prompt('Enter rejection reason (optional):');
-    if (reason === null) return; // User cancelled
-    
+function handleRejectSubmission(submissionId) {
+    // Create modal for rejection
+    const modalHTML = `
+        <div class="modal fade" id="rejectSubmissionModal" tabindex="-1" aria-labelledby="rejectSubmissionModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title text-white" id="rejectSubmissionModalLabel">Reject Submission</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="rejectSubmissionForm">
+                            <div class="mb-3">
+                                <label for="rejectReason" class="form-label text-white">Rejection Reason (Optional)</label>
+                                <textarea class="form-control" id="rejectReason" rows="3" 
+                                          placeholder="Enter reason for rejection..." style="color: var(--text-light);"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" onclick="confirmRejectSubmission(${submissionId})">
+                            Reject Submission
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('rejectSubmissionModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('rejectSubmissionModal'));
+    modal.show();
+
+    // Clean up modal when hidden
+    document.getElementById('rejectSubmissionModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+// Confirm reject submission
+async function confirmRejectSubmission(submissionId) {
+    const reasonInput = document.getElementById('rejectReason');
+    const reason = reasonInput ? reasonInput.value.trim() : null;
+
+    // Close modal first
+    const modal = bootstrap.Modal.getInstance(document.getElementById('rejectSubmissionModal'));
+    if (modal) modal.hide();
+
     try {
         const response = await rejectSubmission(submissionId, reason || null);
         if (response.success) {
@@ -1097,29 +1170,98 @@ async function handleApproveSubmission(submissionId) {
 }
 
 function showNegotiateModal(submissionId) {
-    const offeredPrice = prompt('Enter your counter-offer price:');
-    if (!offeredPrice || isNaN(parseFloat(offeredPrice)) || parseFloat(offeredPrice) <= 0) {
-        showAlert('Invalid price', 'danger');
+    // Create modal for admin negotiation
+    const modalHTML = `
+        <div class="modal fade" id="adminNegotiateModal" tabindex="-1" aria-labelledby="adminNegotiateModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title text-white" id="adminNegotiateModalLabel">Make Offer</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="adminNegotiateForm">
+                            <div class="mb-3">
+                                <label for="adminOfferPrice" class="form-label text-white">Your Offer Price ($) <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text" style="background-color: var(--bg-darker); border-color: var(--border-dark); color: var(--text-light);">$</span>
+                                    <input type="number" class="form-control" id="adminOfferPrice" 
+                                           step="0.01" min="0.01" required style="color: var(--text-light);">
+                                </div>
+                                <small class="form-text" style="color: var(--text-muted);">Enter the price you're offering to pay for this book.</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="adminOfferMessage" class="form-label text-white">Message (Optional)</label>
+                                <textarea class="form-control" id="adminOfferMessage" rows="3" 
+                                          placeholder="Add any message to your offer..." style="color: var(--text-light);"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="handleAdminNegotiate(${submissionId})">
+                            Submit Offer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('adminNegotiateModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('adminNegotiateModal'));
+    modal.show();
+
+    // Clean up modal when hidden
+    document.getElementById('adminNegotiateModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+// Handle admin negotiate submission
+async function handleAdminNegotiate(submissionId) {
+    const priceInput = document.getElementById('adminOfferPrice');
+    const messageInput = document.getElementById('adminOfferMessage');
+
+    if (!priceInput || !priceInput.value || parseFloat(priceInput.value) <= 0) {
+        showAlert('Please enter a valid offer price', 'warning');
         return;
     }
-    
-    const message = prompt('Enter optional message:') || '';
-    
-    adminNegotiate(submissionId, {
-        offeredPrice: parseFloat(offeredPrice),
-        offerMessage: message
-    })
-        .then(response => {
-            if (response.success) {
-                showAlert('Counter-offer submitted', 'success');
-                loadAdminSubmissions();
-            } else {
-                showAlert(response.error || 'Failed to submit counter-offer', 'danger');
-            }
-        })
-        .catch(error => {
-            showAlert(error.message || 'Error submitting counter-offer', 'danger');
+
+    const price = parseFloat(priceInput.value);
+    const message = messageInput ? messageInput.value.trim() : null;
+
+    // Close modal first
+    const modal = bootstrap.Modal.getInstance(document.getElementById('adminNegotiateModal'));
+    if (modal) modal.hide();
+
+    try {
+        const response = await adminNegotiate(submissionId, {
+            offeredPrice: price,
+            offerMessage: message || null
         });
+
+        if (response.success) {
+            showAlert('Offer submitted successfully!', 'success');
+            // Reload submissions
+            setTimeout(() => {
+                loadAdminSubmissions();
+            }, 1000);
+        } else {
+            showAlert(response.error || 'Failed to submit offer', 'danger');
+        }
+    } catch (error) {
+        showAlert(error.message || 'Failed to submit offer. Please try again.', 'danger');
+    }
 }
 
 async function showAdminSubmissionDetails(submissionId) {
@@ -1566,8 +1708,13 @@ window.handleRejectSubmission = handleRejectSubmission;
 window.showApproveModal = showApproveModal;
 window.handleApproveSubmission = handleApproveSubmission;
 window.showNegotiateModal = showNegotiateModal;
+window.handleAdminNegotiate = handleAdminNegotiate;
 window.showAdminSubmissionDetails = showAdminSubmissionDetails;
+window.showAlert = showAlert;
 window.showAddBookModal = showAddBookModal;
 window.handleAddBook = handleAddBook;
 window.handleDeleteBook = handleDeleteBook;
+window.handleApproveSubmission = handleApproveSubmission;
+window.confirmUpdateOrderStatus = confirmUpdateOrderStatus;
+window.confirmRejectSubmission = confirmRejectSubmission;
 

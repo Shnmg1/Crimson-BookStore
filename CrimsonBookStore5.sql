@@ -120,7 +120,7 @@ CREATE TABLE PriceNegotiation (
     OfferedPrice DECIMAL(10,2) NOT NULL,
     OfferDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     OfferMessage TEXT,
-    OfferStatus ENUM('Pending', 'Accepted', 'Rejected') NOT NULL DEFAULT 'Pending',
+    OfferStatus ENUM('Pending', 'Accepted', 'Rejected', 'Completed') NOT NULL DEFAULT 'Pending',
     RoundNumber INT NOT NULL,
     
     -- Foreign Keys
