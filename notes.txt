@@ -1,0 +1,13 @@
+    Critical gaps
+Management queries (Phase 4) — missing
+Requirements: at least 10 SQL queries for management analysis
+Need: SQL script with queries covering:
+Inventory/stock management (5 queries)
+Sales/purchase order analysis (5 queries)
+Book acquisition analysis (5 queries)
+User/admin audit (5 queries)
+Status: not found in codebase
+    Sample data
+SampleBookData.sql has only 7 books
+Requirements: at least 5 sellers, 10 buyers, 30 books, selling/buying transactions with varying dates
+Need: more comprehensive sample data
