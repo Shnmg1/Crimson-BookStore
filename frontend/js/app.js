@@ -855,7 +855,8 @@ async function loadAdminOrders() {
                     html += `<button class="btn btn-sm btn-success" onclick="updateOrderStatus(${order.orderId}, 'Fulfilled')">Shipped/Fulfilled</button> `;
                     html += `<button class="btn btn-sm btn-danger" onclick="updateOrderStatus(${order.orderId}, 'Cancelled')">Cancel</button>`;
                 } else if (order.status === 'Fulfilled') {
-                    html += `<button class="btn btn-sm btn-primary" onclick="updateOrderStatus(${order.orderId}, 'Complete')">Complete</button>`;
+                    html += `<button class="btn btn-sm btn-primary" onclick="updateOrderStatus(${order.orderId}, 'Complete')">Complete</button> `;
+                    html += `<button class="btn btn-sm btn-danger" onclick="updateOrderStatus(${order.orderId}, 'Cancelled')">Cancel</button>`;
                 } else if (order.status === 'Complete') {
                     html += `<span class="text-muted">Order completed</span>`;
                 } else if (order.status === 'Cancelled') {
@@ -938,13 +939,38 @@ function getStatusBadgeColor(status) {
 }
 
 // Admin action handlers
-async function updateOrderStatus(orderId, newStatus) {
+function updateOrderStatus(orderId, newStatus) {
+    // Create confirmation modal
     const confirmMessage = newStatus === 'Cancelled' 
         ? `Are you sure you want to cancel order #${orderId}? All books in this order will be automatically restocked.`
         : `Are you sure you want to change order #${orderId} status to ${newStatus}?`;
     
-    if (!confirm(confirmMessage)) {
-        return;
+    const modalHTML = `
+        <div class="modal fade" id="updateOrderStatusModal" tabindex="-1" aria-labelledby="updateOrderStatusModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title text-white" id="updateOrderStatusModalLabel">Confirm Status Change</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-white">${confirmMessage}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="confirmUpdateOrderStatus(${orderId}, '${newStatus}')">
+                            Update Status
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('updateOrderStatusModal');
+    if (existingModal) {
+        existingModal.remove();
     }
 
     // Add modal to body
