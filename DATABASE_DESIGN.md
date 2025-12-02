@@ -246,7 +246,6 @@ This document provides complete information about the database schema, business 
 - `PaymentDate`: When payment was processed
 - `Amount`: Payment amount
 - `PaymentStatus`: 'Pending', 'Completed', 'Failed', or 'Refunded'
-- `TransactionID`: Optional transaction identifier
 
 **Relationships**:
 - Many-to-One with PurchaseOrder

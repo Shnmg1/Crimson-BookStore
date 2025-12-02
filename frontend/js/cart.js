@@ -188,10 +188,54 @@ function displayCartItems(items, total) {
 }
 
 // Handle remove from cart
-async function handleRemoveFromCart(cartItemId) {
-    if (!confirm('Are you sure you want to remove this item from your cart?')) {
-        return;
+function handleRemoveFromCart(cartItemId) {
+    // Create confirmation modal
+    const modalHTML = `
+        <div class="modal fade" id="removeCartItemModal" tabindex="-1" aria-labelledby="removeCartItemModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title text-white" id="removeCartItemModalLabel">Remove Item</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-white">Are you sure you want to remove this item from your cart?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" onclick="confirmRemoveFromCart(${cartItemId})">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('removeCartItemModal');
+    if (existingModal) {
+        existingModal.remove();
     }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('removeCartItemModal'));
+    modal.show();
+
+    // Clean up modal when hidden
+    document.getElementById('removeCartItemModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+// Confirm remove from cart
+async function confirmRemoveFromCart(cartItemId) {
+    // Close modal first
+    const modal = bootstrap.Modal.getInstance(document.getElementById('removeCartItemModal'));
+    if (modal) modal.hide();
 
     try {
         const response = await removeFromCart(cartItemId);
@@ -209,10 +253,54 @@ async function handleRemoveFromCart(cartItemId) {
 }
 
 // Handle clear cart
-async function handleClearCart() {
-    if (!confirm('Are you sure you want to clear your entire cart? This action cannot be undone.')) {
-        return;
+function handleClearCart() {
+    // Create confirmation modal
+    const modalHTML = `
+        <div class="modal fade" id="clearCartModal" tabindex="-1" aria-labelledby="clearCartModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title text-white" id="clearCartModalLabel">Clear Cart</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-white">Are you sure you want to clear your entire cart? This action cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" onclick="confirmClearCart()">
+                            Clear Cart
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('clearCartModal');
+    if (existingModal) {
+        existingModal.remove();
     }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('clearCartModal'));
+    modal.show();
+
+    // Clean up modal when hidden
+    document.getElementById('clearCartModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+// Confirm clear cart
+async function confirmClearCart() {
+    // Close modal first
+    const modal = bootstrap.Modal.getInstance(document.getElementById('clearCartModal'));
+    if (modal) modal.hide();
 
     try {
         const response = await clearCart();
@@ -299,6 +387,8 @@ window.clearCart = clearCart;
 window.loadCart = loadCart;
 window.handleRemoveFromCart = handleRemoveFromCart;
 window.handleClearCart = handleClearCart;
+window.confirmRemoveFromCart = confirmRemoveFromCart;
+window.confirmClearCart = confirmClearCart;
 window.handleCheckout = handleCheckout;
 window.updateCartBadge = updateCartBadge;
 window.refreshCartBadge = refreshCartBadge;

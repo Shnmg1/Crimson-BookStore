@@ -506,26 +506,153 @@ async function showSubmissionDetails(submissionId) {
     }
 }
 
-// Handle negotiation action (accept or reject)
-async function handleNegotiationAction(submissionId, negotiationId, action) {
-    if (!confirm(`Are you sure you want to ${action} this offer?`)) {
+// Handle negotiation action (accept or reject) - with confirmation modal
+function handleNegotiationAction(submissionId, negotiationId, action) {
+    console.log('handleNegotiationAction called:', { submissionId, negotiationId, action });
+    
+    if (!submissionId || !negotiationId || !action) {
+        const errorMsg = 'Missing required parameters';
+        console.error('Missing parameters:', { submissionId, negotiationId, action });
+        alert(errorMsg);
         return;
     }
 
-    try {
-        const response = await negotiateSubmission(submissionId, action, negotiationId);
+    const actionText = action === 'accept' ? 'accept' : 'reject';
+    const actionCapitalized = action === 'accept' ? 'Accept' : 'Reject';
+    
+    // Create confirmation modal
+    const modalHTML = `
+        <div class="modal fade" id="negotiateConfirmModal" tabindex="-1" aria-labelledby="negotiateConfirmModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title text-white" id="negotiateConfirmModalLabel">Confirm ${actionCapitalized}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-white">Are you sure you want to ${actionText} this offer?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-${action === 'accept' ? 'success' : 'danger'}" id="confirmNegotiateBtn">
+                            ${actionCapitalized} Offer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 
-        if (response.success) {
-            showAlert(response.data.message || `Offer ${action}ed successfully`, 'success');
+    // Remove existing modal if any
+    const existingModal = document.getElementById('negotiateConfirmModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('negotiateConfirmModal'));
+    modal.show();
+
+    // Handle confirm button click
+    document.getElementById('confirmNegotiateBtn').addEventListener('click', async function() {
+        console.log('Confirm button clicked, proceeding with', action);
+        modal.hide();
+        
+        // Process the action
+        await processNegotiationAction(submissionId, negotiationId, action);
+        
+        // Clean up modal
+        setTimeout(() => {
+            const modalElement = document.getElementById('negotiateConfirmModal');
+            if (modalElement) {
+                modalElement.remove();
+            }
+        }, 300);
+    });
+
+    // Clean up modal when hidden
+    document.getElementById('negotiateConfirmModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+// Process the negotiation action (separated for clarity)
+async function processNegotiationAction(submissionId, negotiationId, action) {
+    try {
+        console.log('Processing negotiation action:', { submissionId, negotiationId, action });
+        
+        console.log('Calling negotiateSubmission with:', { submissionId, action, negotiationId });
+        
+        let response;
+        try {
+            response = await negotiateSubmission(submissionId, action, negotiationId);
+            console.log('Negotiate response received:', response);
+        } catch (apiError) {
+            console.error('API call failed:', apiError);
+            if (typeof showAlert === 'function') {
+                showAlert(`Error: ${apiError.message || 'Failed to communicate with server'}`, 'danger');
+            } else {
+                alert(`Error: ${apiError.message || 'Failed to communicate with server'}`);
+            }
+            return;
+        }
+
+        if (!response) {
+            console.error('No response received');
+            if (typeof showAlert === 'function') {
+                showAlert('No response from server', 'danger');
+            } else {
+                alert('No response from server');
+            }
+            return;
+        }
+
+        console.log('Checking response.success:', response.success);
+        console.log('Response.data:', response.data);
+
+        if (response.success === true) {
+            const successMsg = response.data?.message || `Offer ${action}ed successfully`;
+            console.log('Success! Message:', successMsg);
+            
+            if (typeof showAlert === 'function') {
+                showAlert(successMsg, 'success');
+            } else {
+                alert(successMsg);
+            }
+            
             // Reload submission details
+            console.log('Reloading submission details...');
             setTimeout(() => {
-                showSubmissionDetails(submissionId);
+                if (typeof showSubmissionDetails === 'function') {
+                    console.log('Calling showSubmissionDetails');
+                    showSubmissionDetails(submissionId);
+                } else {
+                    console.log('showSubmissionDetails not found, reloading page');
+                    location.reload();
+                }
             }, 1000);
         } else {
-            showAlert(response.error || `Failed to ${action} offer`, 'danger');
+            const errorMsg = response.error || response.message || `Failed to ${action} offer`;
+            console.error('Request failed:', errorMsg);
+            
+            if (typeof showAlert === 'function') {
+                showAlert(`Error: ${errorMsg}`, 'danger');
+            } else {
+                alert(`Error: ${errorMsg}`);
+            }
         }
     } catch (error) {
-        showAlert(error.message || `Failed to ${action} offer. Please try again.`, 'danger');
+        console.error('Unexpected error in processNegotiationAction:', error);
+        console.error('Error stack:', error.stack);
+        
+        if (typeof showAlert === 'function') {
+            showAlert(`Unexpected error: ${error.message || 'Please try again'}`, 'danger');
+        } else {
+            alert(`Unexpected error: ${error.message || 'Please try again'}`);
+        }
     }
 }
 

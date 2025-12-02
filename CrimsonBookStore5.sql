@@ -85,7 +85,7 @@ CREATE TABLE SellSubmission (
     PhysicalCondition ENUM('New', 'Good', 'Fair') NOT NULL,
     CourseMajor VARCHAR(50),
     AskingPrice DECIMAL(10,2) NOT NULL,
-    Status ENUM('Pending Review', 'Approved', 'Rejected') NOT NULL DEFAULT 'Pending Review',
+    Status ENUM('Pending Review', 'Approved', 'Rejected', 'Completed') NOT NULL DEFAULT 'Pending Review',
     SubmissionDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
     -- Foreign Keys
@@ -120,7 +120,7 @@ CREATE TABLE PriceNegotiation (
     OfferedPrice DECIMAL(10,2) NOT NULL,
     OfferDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     OfferMessage TEXT,
-    OfferStatus ENUM('Pending', 'Accepted', 'Rejected') NOT NULL DEFAULT 'Pending',
+    OfferStatus ENUM('Pending', 'Accepted', 'Rejected', 'Completed') NOT NULL DEFAULT 'Pending',
     RoundNumber INT NOT NULL,
     
     -- Foreign Keys
@@ -258,7 +258,6 @@ CREATE TABLE Payment (
     PaymentDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     Amount DECIMAL(10,2) NOT NULL,
     PaymentStatus ENUM('Pending', 'Completed', 'Failed', 'Refunded') NOT NULL DEFAULT 'Completed',
-    TransactionID VARCHAR(100),
     
     -- Foreign Keys
     CONSTRAINT fk_payment_order FOREIGN KEY (OrderID)

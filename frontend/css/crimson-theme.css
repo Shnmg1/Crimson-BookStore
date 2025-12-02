@@ -488,3 +488,17 @@ body {
   color: white;
 }
 
+.input-group-text {
+  background-color: var(--bg-darker);
+  border-color: var(--border-dark);
+  color: var(--text-light);
+}
+
+.modal-title {
+  color: var(--text-light) !important;
+}
+
+.form-label {
+  color: var(--text-light) !important;
+}
+

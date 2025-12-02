@@ -901,38 +901,88 @@ public class SellSubmissionService : ISellSubmissionService
 
         decimal acquisitionCost;
         
-        // Check if there's an accepted negotiation
-        var negotiationQuery = @"
-            SELECT OfferedPrice
+        // First, check if there's an accepted negotiation (Admin offer accepted by customer)
+        var acceptedNegotiationQuery = @"
+            SELECT OfferedPrice, NegotiationID, RoundNumber
             FROM PriceNegotiation
             WHERE SubmissionID = @SubmissionID
               AND OfferStatus = 'Accepted'
+              AND OfferedBy = 'Admin'
             ORDER BY RoundNumber DESC
             LIMIT 1";
 
-        var negotiationResult = await _databaseService.ExecuteQueryAsync(
-            negotiationQuery,
+        var acceptedNegotiationResult = await _databaseService.ExecuteQueryAsync(
+            acceptedNegotiationQuery,
             new Dictionary<string, object> { { "@SubmissionID", submissionId } }
         );
 
-        if (negotiationResult.Rows.Count > 0)
+        if (acceptedNegotiationResult.Rows.Count > 0)
         {
             // Use accepted negotiation price as acquisition cost
-            acquisitionCost = Convert.ToDecimal(negotiationResult.Rows[0]["OfferedPrice"]);
+            acquisitionCost = Convert.ToDecimal(acceptedNegotiationResult.Rows[0]["OfferedPrice"]);
             
+            // Verify submission status matches - if customer accepted, status should be 'Approved'
             if (submissionStatus != "Approved")
             {
-                throw new InvalidOperationException("Submission must be in Approved status (customer must accept negotiation first)");
+                throw new InvalidOperationException($"Submission must be in 'Approved' status when a negotiation has been accepted. Current status: {submissionStatus}");
             }
         }
         else
         {
-            // No negotiations - use asking price as acquisition cost (initial approval)
-            acquisitionCost = Convert.ToDecimal(submissionRow["AskingPrice"]);
-            
-            if (submissionStatus != "Pending Review")
+            // Check if there's a pending customer counter-offer (admin can approve using customer's counter-offer)
+            var customerCounterOfferQuery = @"
+                SELECT OfferedPrice, NegotiationID, RoundNumber
+                FROM PriceNegotiation
+                WHERE SubmissionID = @SubmissionID
+                  AND OfferStatus = 'Pending'
+                  AND OfferedBy = 'User'
+                ORDER BY RoundNumber DESC
+                LIMIT 1";
+
+            var customerCounterOfferResult = await _databaseService.ExecuteQueryAsync(
+                customerCounterOfferQuery,
+                new Dictionary<string, object> { { "@SubmissionID", submissionId } }
+            );
+
+            if (customerCounterOfferResult.Rows.Count > 0)
             {
-                throw new InvalidOperationException("Submission must be in Pending Review status for initial approval");
+                // Use customer's latest counter-offer as acquisition cost
+                acquisitionCost = Convert.ToDecimal(customerCounterOfferResult.Rows[0]["OfferedPrice"]);
+                
+                // Status should still be 'Pending Review' when there's a pending customer counter-offer
+                if (submissionStatus != "Pending Review")
+                {
+                    throw new InvalidOperationException($"Submission must be in 'Pending Review' status when approving a customer counter-offer. Current status: {submissionStatus}");
+                }
+            }
+            else
+            {
+                // Check if there are any negotiations at all (to provide better error message)
+                var anyNegotiationsQuery = @"
+                    SELECT COUNT(*) as negotiation_count
+                    FROM PriceNegotiation
+                    WHERE SubmissionID = @SubmissionID";
+                
+                var anyNegotiationsResult = await _databaseService.ExecuteQueryAsync(
+                    anyNegotiationsQuery,
+                    new Dictionary<string, object> { { "@SubmissionID", submissionId } }
+                );
+                
+                var negotiationCount = Convert.ToInt32(anyNegotiationsResult.Rows[0]["negotiation_count"]);
+                
+                if (negotiationCount > 0 && submissionStatus == "Approved")
+                {
+                    // There are negotiations but none are accepted, yet status is 'Approved' - this shouldn't happen
+                    throw new InvalidOperationException("Submission status is 'Approved' but no accepted negotiation found. This may indicate a data inconsistency.");
+                }
+                
+                // No negotiations at all - use asking price as acquisition cost (initial approval)
+                acquisitionCost = Convert.ToDecimal(submissionRow["AskingPrice"]);
+                
+                if (submissionStatus != "Pending Review")
+                {
+                    throw new InvalidOperationException($"Submission must be in 'Pending Review' status for initial approval. Current status: {submissionStatus}");
+                }
             }
         }
 
