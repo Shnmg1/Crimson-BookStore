@@ -62,24 +62,25 @@ async function showPaymentMethodsPage() {
 
     const app = document.getElementById('app');
     app.innerHTML = `
-        <div class="row mb-3">
-            <div class="col">
-                <h2>Payment Methods</h2>
-            </div>
-            <div class="col-auto">
-                <button class="btn btn-primary" onclick="showAddPaymentMethodModal()">
-                    Add Payment Method
+        <div class="ua-card">
+            <div class="ua-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 class="ua-card-title" style="margin: 0;">Payment Methods</h2>
+                <button class="btn-ua-primary" onclick="showAddPaymentMethodModal()">
+                    <i class="bi bi-plus-circle"></i> Add Payment Method
                 </button>
             </div>
         </div>
         <div id="paymentMethodsList">
             <div class="text-center">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
+                <div class="ua-spinner"></div>
             </div>
         </div>
     `;
+    
+    // Update active sidebar link
+    document.querySelectorAll('.ua-sidebar-link').forEach(link => link.classList.remove('active'));
+    const paymentLink = document.getElementById('sidebarPayment');
+    if (paymentLink) paymentLink.classList.add('active');
     
     await loadPaymentMethods();
 }
@@ -94,55 +95,52 @@ async function loadPaymentMethods() {
         
         if (!response.success || !response.data || response.data.length === 0) {
             paymentMethodsList.innerHTML = `
-                <div class="alert alert-info">
-                    <h5>No payment methods</h5>
-                    <p>You haven't saved any payment methods yet. Add one to get started!</p>
-                    <button class="btn btn-primary" onclick="showAddPaymentMethodModal()">
-                        Add Payment Method
-                    </button>
+                <div class="ua-card">
+                    <div class="ua-empty-state">
+                        <div class="ua-empty-state-icon">
+                            <i class="bi bi-credit-card-2-front" style="font-size: 4rem;"></i>
+                        </div>
+                        <h5 style="color: var(--text-light); margin-bottom: 1rem;">No payment methods</h5>
+                        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">You haven't saved any payment methods yet. Add one to get started!</p>
+                        <button class="btn-ua-primary" onclick="showAddPaymentMethodModal()">
+                            <i class="bi bi-plus-circle"></i> Add Payment Method
+                        </button>
+                    </div>
                 </div>
             `;
             return;
         }
 
         // Display payment methods
-        let html = '<div class="row">';
+        let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">';
         
         response.data.forEach(pm => {
             html += `
-                <div class="col-md-6 mb-3">
-                    <div class="card ${pm.isDefault ? 'border-primary' : ''}">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h5 class="card-title">
-                                        ${escapeHtml(pm.displayName)}
-                                        ${pm.isDefault ? '<span class="badge bg-primary ms-2">Default</span>' : ''}
-                                    </h5>
-                                    <p class="card-text mb-1">
-                                        <small class="text-muted">
-                                            Expires: ${escapeHtml(pm.expirationDate)}
-                                        </small>
-                                    </p>
-                                    <p class="card-text mb-0">
-                                        <small class="text-muted">
-                                            Added: ${new Date(pm.createdDate).toLocaleDateString()}
-                                        </small>
-                                    </p>
-                                </div>
-                                <div>
-                                    ${!pm.isDefault ? `
-                                        <button class="btn btn-sm btn-outline-primary mb-2" onclick="handleSetDefault(${pm.paymentMethodId})">
-                                            Set as Default
-                                        </button>
-                                        <br>
-                                    ` : ''}
-                                    <button class="btn btn-sm btn-danger" onclick="handleDeletePaymentMethod(${pm.paymentMethodId})">
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
+                <div class="ua-card" style="${pm.isDefault ? 'border: 2px solid var(--ua-crimson);' : ''}">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div style="flex: 1;">
+                            <h5 style="color: var(--text-light); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="bi bi-credit-card"></i>
+                                ${escapeHtml(pm.displayName)}
+                                ${pm.isDefault ? '<span class="ua-badge ua-badge-primary">Default</span>' : ''}
+                            </h5>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.25rem;">
+                                <strong>Expires:</strong> ${escapeHtml(pm.expirationDate)}
+                            </p>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0;">
+                                <strong>Added:</strong> ${new Date(pm.createdDate).toLocaleDateString()}
+                            </p>
                         </div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        ${!pm.isDefault ? `
+                            <button class="btn-ua-secondary" style="flex: 1; min-width: 120px;" onclick="handleSetDefault(${pm.paymentMethodId})">
+                                <i class="bi bi-star"></i> Set as Default
+                            </button>
+                        ` : ''}
+                        <button class="btn-ua-danger" style="flex: 1; min-width: 120px;" onclick="handleDeletePaymentMethod(${pm.paymentMethodId})">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
                     </div>
                 </div>
             `;
@@ -152,10 +150,12 @@ async function loadPaymentMethods() {
         paymentMethodsList.innerHTML = html;
     } catch (error) {
         paymentMethodsList.innerHTML = `
-            <div class="alert alert-danger">
-                <h5>Error loading payment methods</h5>
-                <p>${escapeHtml(error.message)}</p>
-                <button class="btn btn-secondary" onclick="loadPaymentMethods()">Retry</button>
+            <div class="ua-card">
+                <div class="ua-alert ua-alert-danger">
+                    <h5 style="margin-top: 0;">Error loading payment methods</h5>
+                    <p>${escapeHtml(error.message)}</p>
+                    <button class="btn-ua-secondary" onclick="loadPaymentMethods()">Retry</button>
+                </div>
             </div>
         `;
     }
@@ -168,14 +168,14 @@ function showAddPaymentMethodModal() {
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Add Payment Method</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <h5 class="modal-title" style="color: var(--text-light);">Add Payment Method</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <form id="addPaymentMethodForm">
                             <div class="mb-3">
-                                <label for="pmCardType" class="form-label">Card Type</label>
-                                <select class="form-select" id="pmCardType" required>
+                                <label for="pmCardType" class="ua-form-label">Card Type</label>
+                                <select class="ua-form-control" id="pmCardType" required>
                                     <option value="">Select card type...</option>
                                     <option value="Visa">Visa</option>
                                     <option value="MasterCard">MasterCard</option>
@@ -184,23 +184,23 @@ function showAddPaymentMethodModal() {
                                 </select>
                             </div>
                             <div class="mb-3">
-                                <label for="pmLastFour" class="form-label">Last 4 Digits</label>
-                                <input type="text" class="form-control" id="pmLastFour" 
+                                <label for="pmLastFour" class="ua-form-label">Last 4 Digits</label>
+                                <input type="text" class="ua-form-control" id="pmLastFour" 
                                        maxlength="4" pattern="[0-9]{4}" 
                                        placeholder="1234" required>
-                                <small class="form-text text-muted">Enter the last 4 digits of your card</small>
+                                <small class="ua-form-text">Enter the last 4 digits of your card</small>
                             </div>
                             <div class="mb-3">
-                                <label for="pmExpiration" class="form-label">Expiration Date</label>
-                                <input type="text" class="form-control" id="pmExpiration" 
+                                <label for="pmExpiration" class="ua-form-label">Expiration Date</label>
+                                <input type="text" class="ua-form-control" id="pmExpiration" 
                                        placeholder="MM/YYYY" pattern="(0[1-9]|1[0-2])/[0-9]{4}" 
                                        required>
-                                <small class="form-text text-muted">Format: MM/YYYY (e.g., 12/2025)</small>
+                                <small class="ua-form-text">Format: MM/YYYY (e.g., 12/2025)</small>
                             </div>
                             <div class="mb-3">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="pmIsDefault">
-                                    <label class="form-check-label" for="pmIsDefault">
+                                    <input class="form-check-input" type="checkbox" id="pmIsDefault" style="background-color: var(--bg-darker); border-color: var(--border-dark);">
+                                    <label class="form-check-label" for="pmIsDefault" style="color: var(--text-light);">
                                         Set as default payment method
                                     </label>
                                 </div>
@@ -208,8 +208,8 @@ function showAddPaymentMethodModal() {
                         </form>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-primary" onclick="handleAddPaymentMethod()">Add Payment Method</button>
+                        <button type="button" class="btn-ua-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn-ua-primary" onclick="handleAddPaymentMethod()">Add Payment Method</button>
                     </div>
                 </div>
             </div>

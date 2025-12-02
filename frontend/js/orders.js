@@ -263,12 +263,10 @@ async function showOrderHistoryPage() {
 
     const app = document.getElementById('app');
     app.innerHTML = `
-        <div class="row mb-3">
-            <div class="col">
-                <h2>Order History</h2>
-            </div>
-            <div class="col-auto">
-                <select class="form-select" id="orderStatusFilter" onchange="loadOrderHistory()">
+        <div class="ua-card" style="margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <h2 class="ua-card-title" style="margin: 0;">Order History</h2>
+                <select class="ua-form-control" id="orderStatusFilter" onchange="loadOrderHistory()" style="width: auto; min-width: 150px;">
                     <option value="">All Orders</option>
                     <option value="New">New</option>
                     <option value="Processing">Processing</option>
@@ -279,12 +277,15 @@ async function showOrderHistoryPage() {
         </div>
         <div id="orderHistoryList">
             <div class="text-center">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
+                <div class="ua-spinner"></div>
             </div>
         </div>
     `;
+
+    // Update active sidebar link
+    document.querySelectorAll('.ua-sidebar-link').forEach(link => link.classList.remove('active'));
+    const ordersLink = document.getElementById('sidebarOrders');
+    if (ordersLink) ordersLink.classList.add('active');
 
     await loadOrderHistory();
 }
@@ -300,65 +301,64 @@ async function loadOrderHistory() {
 
         if (!response.success || !response.data || response.data.length === 0) {
             orderHistoryList.innerHTML = `
-                <div class="alert alert-info">
-                    <h5>No orders found</h5>
-                    <p>You haven't placed any orders yet.</p>
-                    <button class="btn btn-primary" onclick="showBooksPage()">Browse Books</button>
+                <div class="ua-card">
+                    <div class="ua-empty-state">
+                        <div class="ua-empty-state-icon">
+                            <i class="bi bi-receipt" style="font-size: 4rem;"></i>
+                        </div>
+                        <h5 style="color: var(--text-light); margin-bottom: 1rem;">No orders found</h5>
+                        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">You haven't placed any orders yet.</p>
+                        <button class="btn-ua-primary" onclick="showBooksPage()">Browse Books</button>
+                    </div>
                 </div>
             `;
             return;
         }
 
         // Display orders
-        let html = '<div class="list-group">';
+        let html = '';
         
         response.data.forEach(order => {
             const orderDate = new Date(order.orderDate);
             const statusBadgeClass = {
-                'New': 'bg-primary',
-                'Processing': 'bg-warning',
-                'Fulfilled': 'bg-success',
-                'Cancelled': 'bg-danger'
-            }[order.status] || 'bg-secondary';
+                'New': 'ua-badge-primary',
+                'Processing': 'ua-badge-warning',
+                'Fulfilled': 'ua-badge-success',
+                'Cancelled': 'ua-badge-danger'
+            }[order.status] || 'ua-badge-secondary';
 
             html += `
-                <div class="list-group-item list-group-item-action">
-                    <div class="d-flex w-100 justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h5 class="mb-0">Order #${order.orderId}</h5>
-                                <span class="badge ${statusBadgeClass} ms-2">${escapeHtml(order.status)}</span>
+                <div class="ua-card" style="margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 1rem;">
+                        <div style="flex: 1; min-width: 250px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                <h5 style="color: var(--text-light); margin: 0;">Order #${order.orderId}</h5>
+                                <span class="ua-badge ${statusBadgeClass}">${escapeHtml(order.status)}</span>
                             </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p class="mb-1">
-                                        <strong>Order Date:</strong><br>
-                                        <small class="text-muted">${orderDate.toLocaleDateString('en-US', { 
-                                            year: 'numeric', 
-                                            month: 'long', 
-                                            day: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                        })}</small>
-                                    </p>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                                <div>
+                                    <p style="margin-bottom: 0.25rem; color: var(--text-muted); font-size: 0.875rem;"><strong style="color: var(--text-light);">Order Date:</strong></p>
+                                    <p style="margin: 0; color: var(--text-muted); font-size: 0.875rem;">${orderDate.toLocaleDateString('en-US', { 
+                                        year: 'numeric', 
+                                        month: 'short', 
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}</p>
                                 </div>
-                                <div class="col-md-3">
-                                    <p class="mb-1">
-                                        <strong>Items:</strong><br>
-                                        <small class="text-muted">${order.itemCount} ${order.itemCount === 1 ? 'item' : 'items'}</small>
-                                    </p>
+                                <div>
+                                    <p style="margin-bottom: 0.25rem; color: var(--text-muted); font-size: 0.875rem;"><strong style="color: var(--text-light);">Items:</strong></p>
+                                    <p style="margin: 0; color: var(--text-muted); font-size: 0.875rem;">${order.itemCount} ${order.itemCount === 1 ? 'item' : 'items'}</p>
                                 </div>
-                                <div class="col-md-3">
-                                    <p class="mb-1">
-                                        <strong>Total Amount:</strong><br>
-                                        <span class="text-primary fw-bold">$${order.totalAmount.toFixed(2)}</span>
-                                    </p>
+                                <div>
+                                    <p style="margin-bottom: 0.25rem; color: var(--text-muted); font-size: 0.875rem;"><strong style="color: var(--text-light);">Total Amount:</strong></p>
+                                    <p style="margin: 0; color: var(--ua-crimson); font-weight: 600; font-size: 1.125rem;">$${order.totalAmount.toFixed(2)}</p>
                                 </div>
                             </div>
                         </div>
-                        <div class="ms-3">
-                            <button class="btn btn-sm btn-outline-primary" onclick="showOrderDetails(${order.orderId})">
-                                View Details
+                        <div>
+                            <button class="btn-ua-primary" onclick="showOrderDetails(${order.orderId})" style="white-space: nowrap;">
+                                <i class="bi bi-eye"></i> View Details
                             </button>
                         </div>
                     </div>
@@ -366,14 +366,15 @@ async function loadOrderHistory() {
             `;
         });
 
-        html += '</div>';
         orderHistoryList.innerHTML = html;
     } catch (error) {
         orderHistoryList.innerHTML = `
-            <div class="alert alert-danger">
-                <h5>Error loading order history</h5>
-                <p>${escapeHtml(error.message)}</p>
-                <button class="btn btn-secondary" onclick="loadOrderHistory()">Retry</button>
+            <div class="ua-card">
+                <div class="ua-alert ua-alert-danger">
+                    <h5 style="margin-top: 0;">Error loading order history</h5>
+                    <p>${escapeHtml(error.message)}</p>
+                    <button class="btn-ua-secondary" onclick="loadOrderHistory()">Retry</button>
+                </div>
             </div>
         `;
     }

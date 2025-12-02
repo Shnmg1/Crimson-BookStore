@@ -114,44 +114,62 @@ function updateNavigation() {
     const isAuth = isAuthenticated();
     const user = getCurrentUser();
     
-    // Show/hide login/logout
-    const navLoginItem = document.getElementById('navLoginItem');
-    const navUserItem = document.getElementById('navUserItem');
-    const navCartItem = document.getElementById('navCartItem');
-    const navOrdersItem = document.getElementById('navOrdersItem');
-    const navSellItem = document.getElementById('navSellItem');
-    const navPaymentMethodsItem = document.getElementById('navPaymentMethodsItem');
-    const navAdminItem = document.getElementById('navAdminItem');
+    const customerSidebar = document.getElementById('customerSidebar');
+    const adminSidebar = document.getElementById('adminSidebar');
+    const sidebarLoginSection = document.getElementById('sidebarLoginSection');
+    const sidebarUserSection = document.getElementById('sidebarUserSection');
+    
+    // Sidebar links
+    const sidebarCart = document.getElementById('sidebarCart');
+    const sidebarOrders = document.getElementById('sidebarOrders');
+    const sidebarSell = document.getElementById('sidebarSell');
+    const sidebarPayment = document.getElementById('sidebarPayment');
+    const sidebarUserInfo = document.getElementById('sidebarUserInfo');
+    const adminSidebarUserInfo = document.getElementById('adminSidebarUserInfo');
     
     if (isAuth && user) {
         // User is logged in
-        navLoginItem.style.display = 'none';
-        navUserItem.style.display = 'block';
-        document.getElementById('navUserInfo').textContent = `Welcome, ${user.username}`;
+        sidebarLoginSection.style.display = 'none';
+        sidebarUserSection.style.display = 'block';
         
-        // Show admin nav if user is admin
-        if (user.userType === 'Admin' && navAdminItem) {
-            navAdminItem.style.display = 'block';
-            navCartItem.style.display = 'none';
-            if (navOrdersItem) navOrdersItem.style.display = 'none';
-            if (navSellItem) navSellItem.style.display = 'none';
+        // Show admin sidebar if user is admin
+        if (user.userType === 'Admin') {
+            customerSidebar.style.display = 'none';
+            adminSidebar.style.display = 'block';
+            if (adminSidebarUserInfo) {
+                adminSidebarUserInfo.textContent = user.username;
+            }
         } else {
             // Regular customer
-            if (navAdminItem) navAdminItem.style.display = 'none';
-            navCartItem.style.display = 'block';
-            if (navOrdersItem) navOrdersItem.style.display = 'block';
-            if (navSellItem) navSellItem.style.display = 'block';
-            if (navPaymentMethodsItem) navPaymentMethodsItem.style.display = 'block';
+            customerSidebar.style.display = 'block';
+            adminSidebar.style.display = 'none';
+            if (sidebarUserInfo) {
+                sidebarUserInfo.textContent = user.username;
+            }
+            
+            // Show customer links
+            if (sidebarCart) sidebarCart.style.display = 'flex';
+            if (sidebarOrders) sidebarOrders.style.display = 'flex';
+            if (sidebarSell) sidebarSell.style.display = 'flex';
+            if (sidebarPayment) sidebarPayment.style.display = 'flex';
         }
     } else {
         // User is not logged in
-        navLoginItem.style.display = 'block';
-        navUserItem.style.display = 'none';
-        navCartItem.style.display = 'none';
-        if (navOrdersItem) navOrdersItem.style.display = 'none';
-        if (navSellItem) navSellItem.style.display = 'none';
-        if (navPaymentMethodsItem) navPaymentMethodsItem.style.display = 'none';
-        if (navAdminItem) navAdminItem.style.display = 'none';
+        customerSidebar.style.display = 'block';
+        adminSidebar.style.display = 'none';
+        sidebarLoginSection.style.display = 'block';
+        sidebarUserSection.style.display = 'none';
+        
+        // Hide customer links
+        if (sidebarCart) sidebarCart.style.display = 'none';
+        if (sidebarOrders) sidebarOrders.style.display = 'none';
+        if (sidebarSell) sidebarSell.style.display = 'none';
+        if (sidebarPayment) sidebarPayment.style.display = 'none';
+    }
+    
+    // Update cart badge in sidebar
+    if (typeof refreshCartBadge === 'function') {
+        refreshCartBadge();
     }
 }
 
@@ -174,39 +192,47 @@ async function handleLogout() {
 function showHomePage() {
     const app = document.getElementById('app');
     app.innerHTML = `
-        <div class="text-center">
-            <h1>Welcome to Crimson BookStore</h1>
-            <p class="lead">Your source for used textbooks and reading materials</p>
-            <button class="btn btn-primary btn-lg" onclick="showBooksPage()">Browse Books</button>
+        <div class="text-center" style="padding: 4rem 2rem;">
+            <h1 style="color: var(--text-light); margin-bottom: 1rem;">Welcome to Crimson BookStore</h1>
+            <p style="color: var(--text-muted); font-size: 1.125rem; margin-bottom: 2rem;">Your source for used textbooks and reading materials</p>
+            <button class="btn-ua-primary" onclick="showBooksPage()" style="font-size: 1.125rem; padding: 0.75rem 2rem;">Browse Books</button>
         </div>
     `;
+    
+    // Update active sidebar link
+    document.querySelectorAll('.ua-sidebar-link').forEach(link => link.classList.remove('active'));
+    const homeLink = document.getElementById('sidebarHome');
+    if (homeLink) homeLink.classList.add('active');
 }
 
 function showBooksPage() {
     const app = document.getElementById('app');
     app.innerHTML = `
-        <div class="row mb-3">
-            <div class="col-md-8">
-                <h2>Browse Books</h2>
-            </div>
-            <div class="col-md-4">
-                <div class="input-group">
-                    <input type="text" class="form-control" id="searchInput" placeholder="Search books..." onkeyup="handleSearchInput(event)">
-                    <button class="btn btn-outline-secondary" type="button" onclick="handleSearch()">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
-                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
-                        </svg>
+        <div class="ua-card" style="margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <h2 class="ua-card-title" style="margin: 0;">Browse Books</h2>
+                <div style="display: flex; gap: 0.5rem; flex: 1; max-width: 500px;">
+                    <input type="text" class="ua-search-bar" id="searchInput" placeholder="Search for what you are looking for..." onkeyup="handleSearchInput(event)" style="margin: 0;">
+                    <button class="btn-ua-primary" type="button" onclick="handleSearch()" style="padding: 0.75rem 1rem;">
+                        <i class="bi bi-search"></i>
                     </button>
-                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">Clear</button>
+                    <button class="btn-ua-secondary" type="button" onclick="clearSearch()" style="padding: 0.75rem 1rem;">
+                        <i class="bi bi-x"></i>
+                    </button>
                 </div>
             </div>
         </div>
-        <div id="booksList" class="row">
-            <div class="col-12 text-center">
-                <p>Loading books...</p>
+        <div id="booksList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
+            <div class="text-center" style="grid-column: 1 / -1;">
+                <div class="ua-spinner"></div>
             </div>
         </div>
     `;
+    
+    // Update active sidebar link
+    document.querySelectorAll('.ua-sidebar-link').forEach(link => link.classList.remove('active'));
+    const booksLink = document.getElementById('sidebarBooks');
+    if (booksLink) booksLink.classList.add('active');
     
     // Load books from API
     loadBooks();
@@ -233,19 +259,17 @@ function showCartPage() {
 
     const app = document.getElementById('app');
     app.innerHTML = `
-        <div class="row mb-3">
-            <div class="col">
-                <h2>Shopping Cart</h2>
-            </div>
-        </div>
         <div id="cartItems">
             <div class="text-center">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
+                <div class="ua-spinner"></div>
             </div>
         </div>
     `;
+    
+    // Update active sidebar link
+    document.querySelectorAll('.ua-sidebar-link').forEach(link => link.classList.remove('active'));
+    const cartLink = document.getElementById('sidebarCart');
+    if (cartLink) cartLink.classList.add('active');
     
     // Load cart from API
     loadCart();
@@ -254,27 +278,25 @@ function showCartPage() {
 function showLoginPage() {
     const app = document.getElementById('app');
     app.innerHTML = `
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h2 class="card-title">Login</h2>
-                        <form id="loginForm">
-                            <div class="mb-3">
-                                <label for="loginUsername" class="form-label">Username</label>
-                                <input type="text" class="form-control" id="loginUsername" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="loginPassword" class="form-label">Password</label>
-                                <input type="password" class="form-control" id="loginPassword" required>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">Login</button>
-                            <div class="mt-3 text-center">
-                                <p>Don't have an account? <a href="#" onclick="showRegisterPage(); return false;">Register here</a></p>
-                            </div>
-                        </form>
-                    </div>
+        <div style="max-width: 500px; margin: 0 auto;">
+            <div class="ua-card">
+                <div class="ua-card-header">
+                    <h2 class="ua-card-title">Login</h2>
                 </div>
+                <form id="loginForm">
+                    <div style="margin-bottom: 1.5rem;">
+                        <label for="loginUsername" class="ua-form-label">Username</label>
+                        <input type="text" class="ua-form-control" id="loginUsername" required>
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <label for="loginPassword" class="ua-form-label">Password</label>
+                        <input type="password" class="ua-form-control" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn-ua-primary" style="width: 100%; padding: 0.75rem;">Login</button>
+                    <div style="margin-top: 1.5rem; text-align: center;">
+                        <p style="color: var(--text-muted);">Don't have an account? <a href="#" onclick="showRegisterPage(); return false;" style="color: var(--ua-crimson);">Register here</a></p>
+                    </div>
+                </form>
             </div>
         </div>
     `;
@@ -286,62 +308,60 @@ function showLoginPage() {
 function showRegisterPage() {
     const app = document.getElementById('app');
     app.innerHTML = `
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-body">
-                        <h2 class="card-title">Register</h2>
-                        <form id="registerForm">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="regUsername" class="form-label">Username</label>
-                                    <input type="text" class="form-control" id="regUsername" required>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="regEmail" class="form-label">Email</label>
-                                    <input type="email" class="form-control" id="regEmail" required>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="regPassword" class="form-label">Password</label>
-                                    <input type="password" class="form-control" id="regPassword" required>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="regUserType" class="form-label">Account Type</label>
-                                    <select class="form-select" id="regUserType">
-                                        <option value="Customer">Customer</option>
-                                        <option value="Admin">Admin</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="regFirstName" class="form-label">First Name</label>
-                                    <input type="text" class="form-control" id="regFirstName" required>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="regLastName" class="form-label">Last Name</label>
-                                    <input type="text" class="form-control" id="regLastName" required>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="regPhone" class="form-label">Phone (Optional)</label>
-                                    <input type="tel" class="form-control" id="regPhone">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="regAddress" class="form-label">Address (Optional)</label>
-                                    <input type="text" class="form-control" id="regAddress">
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">Register</button>
-                            <div class="mt-3 text-center">
-                                <p>Already have an account? <a href="#" onclick="showLoginPage(); return false;">Login here</a></p>
-                            </div>
-                        </form>
-                    </div>
+        <div style="max-width: 800px; margin: 0 auto;">
+            <div class="ua-card">
+                <div class="ua-card-header">
+                    <h2 class="ua-card-title">Register</h2>
                 </div>
+                <form id="registerForm">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label for="regUsername" class="ua-form-label">Username</label>
+                            <input type="text" class="ua-form-control" id="regUsername" required>
+                        </div>
+                        <div>
+                            <label for="regEmail" class="ua-form-label">Email</label>
+                            <input type="email" class="ua-form-control" id="regEmail" required>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label for="regPassword" class="ua-form-label">Password</label>
+                            <input type="password" class="ua-form-control" id="regPassword" required>
+                        </div>
+                        <div>
+                            <label for="regUserType" class="ua-form-label">Account Type</label>
+                            <select class="ua-form-control" id="regUserType">
+                                <option value="Customer">Customer</option>
+                                <option value="Admin">Admin</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label for="regFirstName" class="ua-form-label">First Name</label>
+                            <input type="text" class="ua-form-control" id="regFirstName" required>
+                        </div>
+                        <div>
+                            <label for="regLastName" class="ua-form-label">Last Name</label>
+                            <input type="text" class="ua-form-control" id="regLastName" required>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div>
+                            <label for="regPhone" class="ua-form-label">Phone (Optional)</label>
+                            <input type="tel" class="ua-form-control" id="regPhone">
+                        </div>
+                        <div>
+                            <label for="regAddress" class="ua-form-label">Address (Optional)</label>
+                            <input type="text" class="ua-form-control" id="regAddress">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-ua-primary" style="width: 100%; padding: 0.75rem;">Register</button>
+                    <div style="margin-top: 1.5rem; text-align: center;">
+                        <p style="color: var(--text-muted);">Already have an account? <a href="#" onclick="showLoginPage(); return false;" style="color: var(--ua-crimson);">Login here</a></p>
+                    </div>
+                </form>
             </div>
         </div>
     `;
@@ -444,18 +464,27 @@ function clearSearch() {
 
 function showAlert(message, type = 'info') {
     const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    const alertClass = {
+        'success': 'ua-alert-success',
+        'danger': 'ua-alert-danger',
+        'warning': 'ua-alert-warning',
+        'info': 'ua-alert-info'
+    }[type] || 'ua-alert-info';
+    
+    alertDiv.className = `ua-alert ${alertClass}`;
+    alertDiv.style.cssText = 'position: fixed; top: 80px; right: 2rem; z-index: 9999; min-width: 300px; max-width: 500px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);';
     alertDiv.innerHTML = `
         ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" style="float: right; margin-left: 1rem;"></button>
     `;
     
-    const app = document.getElementById('app');
-    app.insertBefore(alertDiv, app.firstChild);
+    document.body.appendChild(alertDiv);
     
     // Auto-dismiss after 5 seconds
     setTimeout(() => {
-        alertDiv.remove();
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
     }, 5000);
 }
 

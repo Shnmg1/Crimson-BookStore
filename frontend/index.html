@@ -11,90 +11,127 @@
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <style>
-        body {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        main {
-            flex: 1;
-        }
-        
-        footer {
-            margin-top: auto;
-        }
-    </style>
+    <!-- Custom Crimson Theme -->
+    <link href="css/crimson-theme.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="#">Crimson BookStore</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" id="navHome">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" id="navBooks">Books</a>
-                    </li>
-                    <li class="nav-item" id="navCartItem" style="display: none;">
-                        <a class="nav-link" href="#" id="navCart">Cart <span class="badge bg-secondary" id="cartBadge">0</span></a>
-                    </li>
-                    <li class="nav-item" id="navOrdersItem" style="display: none;">
-                        <a class="nav-link" href="#" id="navOrders">Orders</a>
-                    </li>
-                    <li class="nav-item" id="navSellItem" style="display: none;">
-                        <a class="nav-link" href="#" id="navSell">Sell</a>
-                    </li>
-                    <li class="nav-item" id="navPaymentMethodsItem" style="display: none;">
-                        <a class="nav-link" href="#" id="navPaymentMethods">Payment Methods</a>
-                    </li>
-                    <li class="nav-item dropdown" id="navAdminItem" style="display: none;">
-                        <a class="nav-link dropdown-toggle" href="#" id="navAdminDropdown" role="button" data-bs-toggle="dropdown">
-                            Admin
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#" id="navAdminDashboard">Dashboard</a></li>
-                            <li><a class="dropdown-item" href="#" id="navAdminBooks">Books</a></li>
-                            <li><a class="dropdown-item" href="#" id="navAdminSubmissions">Submissions</a></li>
-                            <li><a class="dropdown-item" href="#" id="navAdminOrders">Orders</a></li>
-                            <li><a class="dropdown-item" href="#" id="navAdminUsers">Users</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item" id="navUserItem" style="display: none;">
-                        <span class="navbar-text me-3 text-white" id="navUserInfo"></span>
-                        <a class="nav-link d-inline" href="#" id="navLogout">Logout</a>
-                    </li>
-                    <li class="nav-item" id="navLoginItem">
-                        <a class="nav-link" href="#" id="navLogin">Login</a>
-                    </li>
-                </ul>
+    <!-- UA-Style Header -->
+    <header class="ua-header">
+        <div class="ua-header-content">
+            <div class="ua-logo-section">
+                <a href="#" class="ua-logo" onclick="showHomePage(); return false;">A</a>
+                <span class="ua-motto">WHERE LEGENDS ARE MADE®</span>
+            </div>
+            <div class="ua-header-actions">
+                <i class="bi bi-search ua-header-icon" onclick="showBooksPage(); return false;" title="Search"></i>
+                <i class="bi bi-list ua-header-icon" id="mobileMenuToggle" title="Menu"></i>
             </div>
         </div>
-    </nav>
+    </header>
 
-    <!-- Main Content -->
-    <main class="container my-4">
-        <div id="app">
-            <div class="text-center">
-                <h1>Welcome to Crimson BookStore</h1>
-                <p class="lead">Your source for used textbooks and reading materials</p>
+    <!-- Main Layout -->
+    <div class="main-layout">
+        <!-- Left Sidebar (Customer Navigation) -->
+        <aside class="ua-sidebar" id="customerSidebar" style="display: none;">
+            <div class="ua-sidebar-section">
+                <div class="ua-sidebar-title">QUICK LINKS</div>
+                <a href="#" class="ua-sidebar-link" id="sidebarHome" onclick="showHomePage(); return false;">
+                    <i class="bi bi-house-door ua-sidebar-icon"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#" class="ua-sidebar-link" id="sidebarBooks" onclick="showBooksPage(); return false;">
+                    <i class="bi bi-book ua-sidebar-icon"></i>
+                    <span>Browse Books</span>
+                </a>
+                <a href="#" class="ua-sidebar-link" id="sidebarCart" onclick="showCartPage(); return false;" style="display: none;">
+                    <i class="bi bi-cart ua-sidebar-icon"></i>
+                    <span>Cart <span class="ua-badge ua-badge-primary" id="sidebarCartBadge" style="display: none;">0</span></span>
+                </a>
+                <a href="#" class="ua-sidebar-link" id="sidebarOrders" onclick="if(typeof showOrderHistoryPage === 'function') showOrderHistoryPage(); return false;" style="display: none;">
+                    <i class="bi bi-receipt ua-sidebar-icon"></i>
+                    <span>Orders</span>
+                </a>
+                <a href="#" class="ua-sidebar-link" id="sidebarSell" onclick="if(typeof showMySubmissionsPage === 'function') showMySubmissionsPage(); return false;" style="display: none;">
+                    <i class="bi bi-currency-dollar ua-sidebar-icon"></i>
+                    <span>Sell Books</span>
+                </a>
+                <a href="#" class="ua-sidebar-link" id="sidebarPayment" onclick="if(typeof showPaymentMethodsPage === 'function') showPaymentMethodsPage(); return false;" style="display: none;">
+                    <i class="bi bi-credit-card ua-sidebar-icon"></i>
+                    <span>Payment Methods</span>
+                </a>
             </div>
-        </div>
-    </main>
+            <div class="ua-sidebar-section" id="sidebarUserSection" style="display: none;">
+                <div class="ua-sidebar-title">ACCOUNT</div>
+                <div class="ua-sidebar-link" style="cursor: default;">
+                    <i class="bi bi-person-circle ua-sidebar-icon"></i>
+                    <span id="sidebarUserInfo"></span>
+                </div>
+                <a href="#" class="ua-sidebar-link" id="sidebarLogout" onclick="handleLogout(); return false;">
+                    <i class="bi bi-box-arrow-right ua-sidebar-icon"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+            <div class="ua-sidebar-section" id="sidebarLoginSection">
+                <div class="ua-sidebar-title">ACCOUNT</div>
+                <a href="#" class="ua-sidebar-link" id="sidebarLogin" onclick="showLoginPage(); return false;">
+                    <i class="bi bi-box-arrow-in-right ua-sidebar-icon"></i>
+                    <span>Login</span>
+                </a>
+            </div>
+        </aside>
 
-    <!-- Footer -->
-    <footer class="bg-light py-3 mt-5">
-        <div class="container text-center">
-            <p class="mb-0">&copy; 2024 Crimson BookStore. All rights reserved.</p>
-        </div>
-    </footer>
+        <!-- Admin Sidebar (when admin is logged in) -->
+        <aside class="ua-sidebar" id="adminSidebar" style="display: none;">
+            <div class="ua-sidebar-section">
+                <div class="ua-sidebar-title">ADMIN</div>
+                <a href="#" class="ua-sidebar-link" id="adminSidebarDashboard" onclick="showAdminDashboard(); return false;">
+                    <i class="bi bi-speedometer2 ua-sidebar-icon"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="ua-sidebar-link" id="adminSidebarBooks" onclick="showAdminBooksPage(); return false;">
+                    <i class="bi bi-book ua-sidebar-icon"></i>
+                    <span>Books</span>
+                </a>
+                <a href="#" class="ua-sidebar-link" id="adminSidebarSubmissions" onclick="showAdminSubmissionsPage(); return false;">
+                    <i class="bi bi-file-earmark-text ua-sidebar-icon"></i>
+                    <span>Submissions</span>
+                </a>
+                <a href="#" class="ua-sidebar-link" id="adminSidebarOrders" onclick="showAdminOrdersPage(); return false;">
+                    <i class="bi bi-receipt ua-sidebar-icon"></i>
+                    <span>Orders</span>
+                </a>
+                <a href="#" class="ua-sidebar-link" id="adminSidebarUsers" onclick="showAdminUsersPage(); return false;">
+                    <i class="bi bi-people ua-sidebar-icon"></i>
+                    <span>Users</span>
+                </a>
+            </div>
+            <div class="ua-sidebar-section">
+                <div class="ua-sidebar-title">ACCOUNT</div>
+                <div class="ua-sidebar-link" style="cursor: default;">
+                    <i class="bi bi-person-circle ua-sidebar-icon"></i>
+                    <span id="adminSidebarUserInfo"></span>
+                </div>
+                <a href="#" class="ua-sidebar-link" onclick="handleLogout(); return false;">
+                    <i class="bi bi-box-arrow-right ua-sidebar-icon"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="ua-main-content">
+            <div id="app">
+                <div class="text-center" style="padding: 4rem 2rem;">
+                    <h1 style="color: var(--text-light); margin-bottom: 1rem;">Welcome to Crimson BookStore</h1>
+                    <p style="color: var(--text-muted); font-size: 1.125rem; margin-bottom: 2rem;">Your source for used textbooks and reading materials</p>
+                    <button class="btn-ua-primary" onclick="showBooksPage()">Browse Books</button>
+                </div>
+            </div>
+        </main>
+    </div>
 
     <!-- Custom JavaScript -->
     <script src="js/api.js"></script>
