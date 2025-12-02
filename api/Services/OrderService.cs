@@ -425,7 +425,7 @@ public class OrderService : IOrderService
         {
             { "New", new[] { "Processing", "Cancelled" } },
             { "Processing", new[] { "Fulfilled", "Cancelled" } },
-            { "Fulfilled", new[] { "Complete" } }, // Can transition from Fulfilled to Complete
+            { "Fulfilled", new[] { "Complete", "Cancelled" } }, // Can transition from Fulfilled to Complete or Cancelled
             { "Complete", new string[] { } }, // Cannot transition from Complete (final state)
             { "Cancelled", new string[] { } }  // Cannot transition from Cancelled
         };
