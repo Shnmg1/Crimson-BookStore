@@ -74,12 +74,25 @@ async function loadBooks(searchTerm = null, page = 1) {
         const response = await getBooks(searchTerm, null, null, page);
         
         if (!response.success || !response.data || response.data.length === 0) {
-            booksList.innerHTML = '<div class="col-12 text-center"><p class="text-muted">No books found.</p></div>';
+            booksList.innerHTML = `
+                <div class="ua-card" style="grid-column: 1 / -1;">
+                    <div class="ua-empty-state">
+                        <div class="ua-empty-state-icon">
+                            <i class="bi bi-book" style="font-size: 4rem;"></i>
+                        </div>
+                        <h5 style="color: var(--text-light);">No books found</h5>
+                        <p style="color: var(--text-muted);">Try adjusting your search criteria.</p>
+                    </div>
+                </div>
+            `;
             return;
         }
 
         // Clear and display books
         booksList.innerHTML = '';
+        booksList.style.display = 'grid';
+        booksList.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
+        booksList.style.gap = '1.5rem';
         
         response.data.forEach(book => {
             const bookCard = createBookCard(book);
@@ -100,14 +113,20 @@ async function loadBooks(searchTerm = null, page = 1) {
             displayPagination(response.pagination);
         }
     } catch (error) {
-        booksList.innerHTML = `<div class="col-12"><div class="alert alert-danger">Error loading books: ${error.message}</div></div>`;
+        booksList.innerHTML = `
+            <div class="ua-card" style="grid-column: 1 / -1;">
+                <div class="ua-alert ua-alert-danger">
+                    <h5 style="margin-top: 0;">Error loading books</h5>
+                    <p>${escapeHtml(error.message)}</p>
+                </div>
+            </div>
+        `;
     }
 }
 
 // Create Bootstrap card for a book
 function createBookCard(book) {
     const col = document.createElement('div');
-    col.className = 'col-md-6 col-lg-4 mb-4';
 
     // Format price range
     const priceText = book.minPrice === book.maxPrice 
@@ -121,29 +140,30 @@ function createBookCard(book) {
 
     // Format conditions
     const conditionsText = book.availableConditions && book.availableConditions.length > 0
-        ? book.availableConditions.join(', ')
+        ? book.availableConditions.map(c => `<span class="ua-badge ua-badge-info" style="margin-right: 0.25rem;">${escapeHtml(c)}</span>`).join('')
         : 'N/A';
 
     col.innerHTML = `
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title">${escapeHtml(book.title)}</h5>
-                <p class="card-text">
-                    <strong>Author:</strong> ${escapeHtml(book.author)}<br>
-                    <strong>ISBN:</strong> ${escapeHtml(book.isbn)}<br>
-                    <strong>Edition:</strong> ${escapeHtml(book.edition)}<br>
-                    ${book.courseMajor ? `<strong>Course:</strong> ${escapeHtml(book.courseMajor)}<br>` : ''}
-                    <strong>Price:</strong> ${priceText}<br>
-                    <strong>Condition:</strong> ${conditionsText}<br>
-                    <strong>Stock:</strong> <span class="badge ${book.availableCount > 0 ? 'bg-success' : 'bg-danger'}">${stockText}</span>
-                </p>
+        <div class="ua-card" style="height: 100%; display: flex; flex-direction: column;">
+            <div style="flex: 1;">
+                <h5 style="color: var(--text-light); margin-bottom: 1rem; font-size: 1.125rem;">${escapeHtml(book.title)}</h5>
+                <div style="color: var(--text-muted); font-size: 0.875rem; line-height: 1.6;">
+                    <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text-light);">Author:</strong> ${escapeHtml(book.author)}</p>
+                    <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text-light);">ISBN:</strong> ${escapeHtml(book.isbn)}</p>
+                    <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text-light);">Edition:</strong> ${escapeHtml(book.edition)}</p>
+                    ${book.courseMajor ? `<p style="margin-bottom: 0.5rem;"><strong style="color: var(--text-light);">Course:</strong> ${escapeHtml(book.courseMajor)}</p>` : ''}
+                    <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text-light);">Price:</strong> <span style="color: var(--ua-crimson); font-weight: 600;">${priceText}</span></p>
+                    <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text-light);">Condition:</strong> ${conditionsText}</p>
+                    <p style="margin-bottom: 0;"><strong style="color: var(--text-light);">Stock:</strong> <span class="ua-badge ${book.availableCount > 0 ? 'ua-badge-success' : 'ua-badge-danger'}">${stockText}</span></p>
+                </div>
             </div>
-            <div class="card-footer">
-                <button class="btn btn-primary w-100 view-details-btn" 
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-dark);">
+                <button class="btn-ua-primary view-details-btn" 
                         data-isbn="${escapeHtml(book.isbn)}"
                         data-edition="${escapeHtml(book.edition)}"
+                        style="width: 100%;"
                         ${book.availableCount === 0 ? 'disabled' : ''}>
-                    ${book.availableCount > 0 ? 'View Details' : 'Out of Stock'}
+                    ${book.availableCount > 0 ? '<i class="bi bi-eye"></i> View Details' : 'Out of Stock'}
                 </button>
             </div>
         </div>

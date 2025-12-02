@@ -83,10 +83,15 @@ async function loadCart() {
         
         if (!response.success || !response.data || response.data.length === 0) {
             cartItems.innerHTML = `
-                <div class="alert alert-info">
-                    <h5>Your cart is empty</h5>
-                    <p>Start shopping to add items to your cart!</p>
-                    <button class="btn btn-primary" onclick="showBooksPage()">Browse Books</button>
+                <div class="ua-card">
+                    <div class="ua-empty-state">
+                        <div class="ua-empty-state-icon">
+                            <i class="bi bi-cart-x" style="font-size: 4rem;"></i>
+                        </div>
+                        <h5 style="color: var(--text-light); margin-bottom: 1rem;">Your cart is empty</h5>
+                        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Start shopping to add items to your cart!</p>
+                        <button class="btn-ua-primary" onclick="showBooksPage()">Browse Books</button>
+                    </div>
                 </div>
             `;
             updateCartBadge(0);
@@ -114,39 +119,43 @@ function displayCartItems(items, total) {
     if (!cartItems) return;
 
     let html = `
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Book</th>
-                        <th>Price</th>
-                        <th>Condition</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
+        <div class="ua-card">
+            <div class="ua-card-header">
+                <h3 class="ua-card-title">Shopping Cart (${items.length} ${items.length === 1 ? 'item' : 'items'})</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="ua-table">
+                    <thead>
+                        <tr>
+                            <th>Book</th>
+                            <th>Price</th>
+                            <th>Condition</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
     `;
 
     items.forEach(item => {
         html += `
             <tr id="cart-item-${item.cartItemId}">
                 <td>
-                    <strong>${escapeHtml(item.title)}</strong><br>
-                    <small class="text-muted">
+                    <strong style="color: var(--text-light);">${escapeHtml(item.title)}</strong><br>
+                    <small style="color: var(--text-muted);">
                         ${escapeHtml(item.author)}<br>
                         ISBN: ${escapeHtml(item.isbn)} | Edition: ${escapeHtml(item.edition)}<br>
                         ${item.courseMajor ? `Course: ${escapeHtml(item.courseMajor)}` : ''}
                     </small>
                 </td>
                 <td>
-                    <strong>$${item.sellingPrice.toFixed(2)}</strong>
+                    <strong style="color: var(--text-light); font-size: 1.125rem;">$${item.sellingPrice.toFixed(2)}</strong>
                 </td>
                 <td>
-                    <span class="badge bg-info">${escapeHtml(item.bookCondition)}</span>
+                    <span class="ua-badge ua-badge-info">${escapeHtml(item.bookCondition)}</span>
                 </td>
                 <td>
-                    <button class="btn btn-sm btn-danger" onclick="handleRemoveFromCart(${item.cartItemId})">
-                        Remove
+                    <button class="btn-ua-danger" style="padding: 0.375rem 0.75rem; font-size: 0.875rem;" onclick="handleRemoveFromCart(${item.cartItemId})">
+                        <i class="bi bi-trash"></i> Remove
                     </button>
                 </td>
             </tr>
@@ -154,19 +163,24 @@ function displayCartItems(items, total) {
     });
 
     html += `
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <th colspan="2" class="text-end">Total:</th>
-                        <th>$${total.toFixed(2)}</th>
-                        <td></td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-        <div class="mt-3 d-flex justify-content-between">
-            <button class="btn btn-secondary" onclick="handleClearCart()">Clear Cart</button>
-            <button class="btn btn-primary btn-lg" onclick="handleCheckout()">Proceed to Checkout</button>
+                    </tbody>
+                    <tfoot>
+                        <tr style="border-top: 2px solid var(--border-dark);">
+                            <th colspan="2" style="text-align: right; color: var(--text-light);">Total:</th>
+                            <th style="color: var(--ua-crimson); font-size: 1.25rem;">$${total.toFixed(2)}</th>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 1.5rem; gap: 1rem;">
+                <button class="btn-ua-secondary" onclick="handleClearCart()">
+                    <i class="bi bi-x-circle"></i> Clear Cart
+                </button>
+                <button class="btn-ua-primary" style="font-size: 1.125rem; padding: 0.75rem 2rem;" onclick="handleCheckout()">
+                    <i class="bi bi-arrow-right-circle"></i> Proceed to Checkout
+                </button>
+            </div>
         </div>
     `;
 
@@ -227,6 +241,8 @@ function handleCheckout() {
 // Update cart badge count in navigation
 function updateCartBadge(count) {
     const cartBadge = document.getElementById('cartBadge');
+    const sidebarCartBadge = document.getElementById('sidebarCartBadge');
+    
     if (cartBadge) {
         cartBadge.textContent = count;
         if (count === 0) {
@@ -235,6 +251,15 @@ function updateCartBadge(count) {
         } else {
             cartBadge.classList.remove('bg-secondary');
             cartBadge.classList.add('bg-danger');
+        }
+    }
+    
+    if (sidebarCartBadge) {
+        if (count > 0) {
+            sidebarCartBadge.textContent = count;
+            sidebarCartBadge.style.display = 'inline-block';
+        } else {
+            sidebarCartBadge.style.display = 'none';
         }
     }
 }
