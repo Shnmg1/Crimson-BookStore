@@ -332,12 +332,20 @@ public class AdminSellSubmissionsController : ControllerBase
                 });
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            // Log the actual exception for debugging
+            Console.WriteLine($"Error approving submission: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
+            }
+            
             return StatusCode(500, new
             {
                 success = false,
-                error = "An error occurred while approving the submission",
+                error = $"An error occurred while approving the submission: {ex.Message}",
                 statusCode = 500
             });
         }

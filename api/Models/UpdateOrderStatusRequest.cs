@@ -2,6 +2,6 @@ namespace CrimsonBookStore.Models;
 
 public class UpdateOrderStatusRequest
 {
-    public string Status { get; set; } = string.Empty; // 'New', 'Processing', 'Fulfilled', 'Cancelled'
+    public string Status { get; set; } = string.Empty; // 'New', 'Processing', 'Fulfilled', 'Complete', 'Cancelled'
 }
 

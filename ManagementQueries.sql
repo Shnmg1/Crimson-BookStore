@@ -418,3 +418,104 @@ WHERE b.Status = 'Available'
 ORDER BY DaysInInventory DESC
 LIMIT 30;
 
+
+-- ============================================================================
+-- ORDER CANCELLATION AND RESTOCKING VERIFICATION QUERIES
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- Question: Verify that books from cancelled orders have been restocked
+--           (Status = 'Available'). This query shows all cancelled orders
+--           and the current status of books that were in those orders.
+-- ----------------------------------------------------------------------------
+SELECT 
+    po.OrderID,
+    po.OrderDate,
+    po.Status AS OrderStatus,
+    po.TotalAmount,
+    b.BookID,
+    b.ISBN,
+    b.Title,
+    b.Author,
+    b.Edition,
+    b.Status AS BookStatus,
+    CASE 
+        WHEN b.Status = 'Available' THEN '✓ Restocked'
+        WHEN b.Status = 'Sold' THEN '✗ NOT Restocked (ERROR!)'
+        ELSE '? Unknown Status'
+    END AS RestockStatus,
+    oli.PriceAtSale
+FROM PurchaseOrder po
+INNER JOIN OrderLineItem oli ON po.OrderID = oli.OrderID
+INNER JOIN Book b ON oli.BookID = b.BookID
+WHERE po.Status = 'Cancelled'
+ORDER BY po.OrderID DESC, b.BookID;
+
+-- ----------------------------------------------------------------------------
+-- Question: Summary of restocking verification - count how many books
+--           from cancelled orders are properly restocked vs. not restocked.
+--           This gives a quick health check.
+-- ----------------------------------------------------------------------------
+SELECT 
+    COUNT(DISTINCT po.OrderID) AS TotalCancelledOrders,
+    COUNT(DISTINCT b.BookID) AS TotalBooksInCancelledOrders,
+    COUNT(CASE WHEN b.Status = 'Available' THEN 1 END) AS BooksRestocked,
+    COUNT(CASE WHEN b.Status = 'Sold' THEN 1 END) AS BooksNOTRestocked,
+    COUNT(CASE WHEN b.Status NOT IN ('Available', 'Sold') THEN 1 END) AS BooksWithOtherStatus,
+    CASE 
+        WHEN COUNT(CASE WHEN b.Status = 'Sold' THEN 1 END) = 0 
+        THEN '✓ All books properly restocked'
+        ELSE '✗ WARNING: Some books not restocked!'
+    END AS RestockHealth
+FROM PurchaseOrder po
+INNER JOIN OrderLineItem oli ON po.OrderID = oli.OrderID
+INNER JOIN Book b ON oli.BookID = b.BookID
+WHERE po.Status = 'Cancelled';
+
+-- ----------------------------------------------------------------------------
+-- Question: Check a specific cancelled order to verify restocking.
+--           Replace @OrderID with the actual order ID you want to check.
+-- ----------------------------------------------------------------------------
+-- Example: Check order #2
+SELECT 
+    po.OrderID,
+    po.OrderDate,
+    po.Status AS OrderStatus,
+    b.BookID,
+    b.ISBN,
+    b.Title,
+    b.Author,
+    b.Edition,
+    b.Status AS BookStatus,
+    CASE 
+        WHEN b.Status = 'Available' THEN '✓ Restocked'
+        ELSE '✗ NOT Restocked'
+    END AS RestockStatus
+FROM PurchaseOrder po
+INNER JOIN OrderLineItem oli ON po.OrderID = oli.OrderID
+INNER JOIN Book b ON oli.BookID = b.BookID
+WHERE po.OrderID = 2  -- Replace with the order ID you want to check
+ORDER BY b.BookID;
+
+-- ----------------------------------------------------------------------------
+-- Question: Find any books that are still marked as 'Sold' but belong
+--           to cancelled orders. These should have been restocked.
+--           This identifies any restocking failures.
+-- ----------------------------------------------------------------------------
+SELECT 
+    po.OrderID,
+    po.OrderDate,
+    po.Status AS OrderStatus,
+    b.BookID,
+    b.ISBN,
+    b.Title,
+    b.Author,
+    b.Edition,
+    b.Status AS BookStatus,
+    'ERROR: Book should be Available but is still Sold!' AS Issue
+FROM PurchaseOrder po
+INNER JOIN OrderLineItem oli ON po.OrderID = oli.OrderID
+INNER JOIN Book b ON oli.BookID = b.BookID
+WHERE po.Status = 'Cancelled'
+    AND b.Status = 'Sold'
+ORDER BY po.OrderID, b.BookID;
