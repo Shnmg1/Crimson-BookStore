@@ -33,6 +33,18 @@ builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 
 var app = builder.Build();
 
+// Seed database on startup
+try
+{
+    var seedService = new SeedDataService(builder.Configuration);
+    await seedService.SeedDataAsync();
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error seeding database: {ex.Message}");
+    // Continue even if seeding fails
+}
+
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
