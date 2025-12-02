@@ -64,13 +64,21 @@ public class SeedDataService
             ("admin", "admin@crimsonbookstore.com", "123", "Admin", "User", "555-0100", "123 Admin St", "Admin"),
             ("james", "james@example.com", "123", "James", "Smith", "555-0101", "456 Customer Ave", "Customer"),
             
-            // Additional customers
+            // Additional customers (need at least 10 buyers + 5 sellers = 15+ customers)
             ("sarah", "sarah@example.com", "password123", "Sarah", "Johnson", "555-0102", "789 Main St", "Customer"),
             ("mike", "mike@example.com", "password123", "Mike", "Williams", "555-0103", "321 Oak Blvd", "Customer"),
             ("emily", "emily@example.com", "password123", "Emily", "Brown", "555-0104", "654 Pine Rd", "Customer"),
             ("david", "david@example.com", "password123", "David", "Jones", "555-0105", "987 Elm St", "Customer"),
             ("lisa", "lisa@example.com", "password123", "Lisa", "Davis", "555-0106", "147 Maple Dr", "Customer"),
             ("chris", "chris@example.com", "password123", "Chris", "Miller", "555-0107", "258 Cedar Ln", "Customer"),
+            ("alex", "alex@example.com", "password123", "Alex", "Wilson", "555-0108", "369 Birch St", "Customer"),
+            ("jessica", "jessica@example.com", "password123", "Jessica", "Moore", "555-0109", "741 Spruce Ave", "Customer"),
+            ("ryan", "ryan@example.com", "password123", "Ryan", "Taylor", "555-0110", "852 Willow Way", "Customer"),
+            ("amanda", "amanda@example.com", "password123", "Amanda", "Anderson", "555-0111", "963 Poplar Rd", "Customer"),
+            ("brian", "brian@example.com", "password123", "Brian", "Thomas", "555-0112", "159 Ash Dr", "Customer"),
+            ("nicole", "nicole@example.com", "password123", "Nicole", "Jackson", "555-0113", "357 Hickory Ln", "Customer"),
+            ("kevin", "kevin@example.com", "password123", "Kevin", "White", "555-0114", "468 Chestnut Blvd", "Customer"),
+            ("rachel", "rachel@example.com", "password123", "Rachel", "Harris", "555-0115", "579 Walnut St", "Customer"),
             
             // Additional admin
             ("admin2", "admin2@crimsonbookstore.com", "admin123", "Admin", "Two", "555-0200", "999 Admin Way", "Admin")
@@ -141,10 +149,29 @@ public class SeedDataService
             ("978-0593099322", "Project Hail Mary", "Andy Weir", "1st", 14.99m, 7.00m, "New", null),
             ("978-0593099322", "Project Hail Mary", "Andy Weir", "1st", 10.99m, 5.00m, "Good", null),
             
-            // Sold books (for order history)
+            // Additional books to exceed 30 total
+            ("978-0134685991", "Effective Java", "Joshua Bloch", "3rd", 40.99m, 22.00m, "Good", "CS 301"),
+            ("978-0596007126", "Head First Design Patterns", "Eric Freeman", "1st", 38.99m, 20.00m, "Good", "CS 350"),
+            ("978-0132350884", "Clean Code", "Robert C. Martin", "1st", 35.99m, 18.00m, "Good", "CS 400"),
+            ("978-0133548015", "Management Information Systems", "Kenneth Laudon", "15th", 110.99m, 55.00m, "New", "MIS 330"),
+            ("978-0133050691", "Database Systems", "Thomas Connolly", "10th", 100.99m, 50.00m, "New", "MIS 350"),
+            ("978-0134689489", "Calculus: Early Transcendentals", "James Stewart", "8th", 160.99m, 80.00m, "New", "MATH 125"),
+            ("978-0321973617", "Linear Algebra", "David Lay", "5th", 90.99m, 45.00m, "New", "MATH 227"),
+            ("978-1982137274", "The Seven Husbands of Evelyn Hugo", "Taylor Jenkins Reid", "1st", 11.99m, 5.50m, "Good", null),
+            ("978-0593099322", "Project Hail Mary", "Andy Weir", "1st", 13.99m, 6.50m, "Good", null),
+            
+            // Sold books (for order history - need at least 10 buyers)
             ("978-0134685991", "Effective Java", "Joshua Bloch", "3rd", 45.99m, 25.00m, "New", "CS 301"),
             ("978-0596007126", "Head First Design Patterns", "Eric Freeman", "1st", 42.99m, 22.00m, "New", "CS 350"),
-            ("978-0132350884", "Clean Code", "Robert C. Martin", "1st", 38.99m, 20.00m, "New", "CS 400")
+            ("978-0132350884", "Clean Code", "Robert C. Martin", "1st", 38.99m, 20.00m, "New", "CS 400"),
+            ("978-0133548015", "Management Information Systems", "Kenneth Laudon", "15th", 125.99m, 60.00m, "New", "MIS 330"),
+            ("978-0133050691", "Database Systems", "Thomas Connolly", "10th", 110.99m, 55.00m, "New", "MIS 350"),
+            ("978-0134689489", "Calculus: Early Transcendentals", "James Stewart", "8th", 180.99m, 90.00m, "New", "MATH 125"),
+            ("978-0321973617", "Linear Algebra", "David Lay", "5th", 95.99m, 48.00m, "New", "MATH 227"),
+            ("978-0062315007", "The Lean Startup", "Eric Ries", "1st", 15.99m, 8.00m, "New", "BUS 200"),
+            ("978-1591846354", "Zero to One", "Peter Thiel", "1st", 18.99m, 10.00m, "New", "BUS 300"),
+            ("978-1982137274", "The Seven Husbands of Evelyn Hugo", "Taylor Jenkins Reid", "1st", 12.99m, 6.00m, "New", null),
+            ("978-0593099322", "Project Hail Mary", "Andy Weir", "1st", 14.99m, 7.00m, "New", null)
         };
 
         foreach (var (isbn, title, author, edition, sellingPrice, acquisitionCost, condition, courseMajor) in books)
@@ -185,24 +212,45 @@ public class SeedDataService
 
         if (userIds.Count == 0) return;
 
+        // Need at least 5 sellers (customers with sell submissions)
+        // Distribute submissions across at least 5 different customers
         var submissions = new[]
         {
+            // Seller 1 (james - user ID 2)
             ("978-0134685991", "Effective Java", "Joshua Bloch", "4th", "New", "CS 301", 30.00m, "Pending Review"),
             ("978-0596007126", "Head First Design Patterns", "Eric Freeman", "2nd", "Good", "CS 350", 25.00m, "Pending Review"),
+            
+            // Seller 2 (sarah - user ID 3)
             ("978-0132350884", "Clean Code", "Robert C. Martin", "2nd", "New", "CS 400", 22.00m, "Approved"),
             ("978-0062315007", "The Lean Startup", "Eric Ries", "1st", "Good", "BUS 200", 10.00m, "Pending Review"),
+            
+            // Seller 3 (mike - user ID 4)
             ("978-1591846354", "Zero to One", "Peter Thiel", "1st", "New", "BUS 300", 12.00m, "Rejected"),
             ("978-0133548015", "Management Information Systems", "Kenneth Laudon", "16th", "New", "MIS 330", 70.00m, "Pending Review"),
+            
+            // Seller 4 (emily - user ID 5)
             ("978-0133050691", "Database Systems", "Thomas Connolly", "11th", "Good", "MIS 350", 50.00m, "Approved"),
             ("978-0134689489", "Calculus: Early Transcendentals", "James Stewart", "9th", "New", "MATH 125", 100.00m, "Pending Review"),
+            
+            // Seller 5 (david - user ID 6)
             ("978-0321973617", "Linear Algebra", "David Lay", "6th", "Good", "MATH 227", 55.00m, "Completed"),
-            ("978-1982137274", "The Seven Husbands of Evelyn Hugo", "Taylor Jenkins Reid", "1st", "New", null, 8.00m, "Pending Review")
+            ("978-1982137274", "The Seven Husbands of Evelyn Hugo", "Taylor Jenkins Reid", "1st", "New", null, 8.00m, "Pending Review"),
+            
+            // Additional submissions from other sellers to exceed requirement
+            ("978-0593099322", "Project Hail Mary", "Andy Weir", "1st", "Good", null, 7.00m, "Pending Review"),
+            ("978-0134685991", "Effective Java", "Joshua Bloch", "3rd", "Fair", "CS 301", 20.00m, "Pending Review"),
+            ("978-0133548015", "Management Information Systems", "Kenneth Laudon", "15th", "Good", "MIS 330", 50.00m, "Approved")
         };
 
+        // Distribute submissions across at least 5 different sellers
+        // First 2 submissions to user 0, next 2 to user 1, etc. to ensure 5+ sellers
+        var sellerIndex = 0;
         var statusIndex = 0;
         foreach (var (isbn, title, author, edition, condition, courseMajor, askingPrice, status) in submissions)
         {
-            var userId = userIds[statusIndex % userIds.Count];
+            // Cycle through first 5 users to ensure at least 5 sellers
+            var userId = userIds[sellerIndex % Math.Min(5, userIds.Count)];
+            sellerIndex++;
             var adminUserId = 1; // First admin
 
             var query = @"
@@ -310,10 +358,12 @@ public class SeedDataService
         var statuses = new[] { "New", "Processing", "Fulfilled", "Complete", "Cancelled" };
         var statusIndex = 0;
 
-        // Create 5 orders
-        for (int i = 0; i < 5 && i < userIds.Count && bookIds.Count >= 2; i++)
+        // Create at least 10 orders (need 10+ buyers)
+        var orderCount = Math.Min(12, Math.Min(userIds.Count, bookIds.Count / 2));
+        for (int i = 0; i < orderCount && bookIds.Count >= 2; i++)
         {
-            var userId = userIds[i];
+            // Distribute orders across different users to ensure 10+ buyers
+            var userId = userIds[i % userIds.Count];
             var status = statuses[statusIndex % statuses.Length];
             statusIndex++;
 
