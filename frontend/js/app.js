@@ -533,6 +533,14 @@ function showAdminDashboard() {
                     </div>
                 </div>
             </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Queries</h5>
+                        <p class="card-text"><a href="#" onclick="showManagementQueriesPage(); return false;">Management Queries</a></p>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 }
@@ -669,6 +677,61 @@ function showAdminUsersPage() {
     loadAdminUsers();
 }
 
+function showManagementQueriesPage() {
+    if (!isAuthenticated() || getCurrentUser()?.userType !== 'Admin') {
+        showAlert('Admin access required', 'danger');
+        showHomePage();
+        return;
+    }
+    
+    const app = document.getElementById('app');
+    app.innerHTML = `
+        <div class="row mb-3">
+            <div class="col">
+                <h2>Management Queries</h2>
+                <p class="text-white-50">Click on any query to view its results</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0 text-white">Available Queries</h5>
+                    </div>
+                    <div class="card-body" style="max-height: 70vh; overflow-y: auto;">
+                        <div id="queriesList">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0 text-white">Query Results</h5>
+                    </div>
+                    <div class="card-body" style="max-height: 70vh; overflow-y: auto;">
+                        <div id="queryResults">
+                            <p class="text-white-50">Select a query from the left to view results</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Load queries after a short delay to ensure the DOM is ready
+    setTimeout(() => {
+        if (typeof loadManagementQueries === 'function') {
+            loadManagementQueries();
+        }
+    }, 100);
+}
+
 // Make functions available globally
 window.showHomePage = showHomePage;
 window.showBooksPage = showBooksPage;
@@ -683,6 +746,7 @@ window.showAdminBooksPage = showAdminBooksPage;
 window.showAdminSubmissionsPage = showAdminSubmissionsPage;
 window.showAdminOrdersPage = showAdminOrdersPage;
 window.showAdminUsersPage = showAdminUsersPage;
+window.showManagementQueriesPage = showManagementQueriesPage;
 
 // Admin Data Loading Functions
 async function loadAdminBooks() {
