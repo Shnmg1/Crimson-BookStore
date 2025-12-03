@@ -502,3 +502,65 @@ body {
   color: var(--text-light) !important;
 }
 
+.query-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background-color: var(--bg-content) !important;
+    color: var(--text-light) !important;
+}
+
+.query-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    border-color: var(--ua-crimson) !important;
+}
+
+.query-card .card-body {
+    background-color: var(--bg-content) !important;
+    color: var(--text-light) !important;
+    padding: 1rem !important;
+}
+
+.query-card .card-title {
+    color: var(--text-light) !important;
+}
+
+.query-card .card-title.text-white {
+    color: var(--text-light) !important;
+}
+
+.query-card .card-text {
+    color: var(--text-muted) !important;
+}
+
+.query-card .card-text.text-white-50 {
+    color: var(--text-muted) !important;
+}
+
+/* Ensure card containers in management queries page are dark */
+#queriesList .card,
+#queryResults .card {
+    background-color: var(--bg-content) !important;
+    border-color: var(--border-dark) !important;
+    color: var(--text-light) !important;
+}
+
+#queriesList .card-header,
+#queryResults .card-header {
+    background-color: var(--bg-darker) !important;
+    border-bottom-color: var(--border-dark) !important;
+    color: var(--text-light) !important;
+}
+
+/* Override Bootstrap default card styling for dark theme */
+.card {
+    background-color: var(--bg-content) !important;
+    border-color: var(--border-dark) !important;
+    color: var(--text-light) !important;
+}
+
+.card-body {
+    background-color: var(--bg-content) !important;
+    color: var(--text-light) !important;
+}
+
